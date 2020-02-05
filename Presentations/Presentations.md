@@ -2,7 +2,7 @@
  
 ## Instructions
 
-Each group will prepare a presentation that you will give in class.  Since presentation is a critical part of data science we want to make sure you have some practice.   Research your assigned topic and create a PowerPoint or pdf presentation to share with the class.  You will have 20 minutes and plan some time for questions and answers.  Once your group has presented please submit your presentation here for grading.  For a great resource on excellent technical presentations please look at https://www.assertion-evidence.com/
+Each group will prepare a presentation that you will give in class.  Since presentation is a critical part of data science we want to make sure you have some practice.   Research your assigned topic and create a PowerPoint or pdf presentation to share with the class.  You will have 20 minutes and plan some time for questions and answers.  Once your group has presented please submit your presentation here for grading.  For a great resource on excellent technical presentations please look at <https://www.assertion-evidence.com/>
 
 Please attach your slides/pdf and any other research for your team presentation.
 
