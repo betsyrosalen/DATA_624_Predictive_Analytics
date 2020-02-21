@@ -1,0 +1,250 @@
+---
+title: "DATA624 HW1"
+subtitle: "The Forecaster's Toolbox"
+author: "Betsy Rosalen"
+date: "2/16/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 7
+      fig_height: 4
+      highlight: tango
+      toc: yes
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+library(ggplot2)
+library(forecast)
+library(expsmooth)
+```
+
+## Exercise 3.1
+
+For the following series, find an appropriate Box-Cox transformation in order to stabilize the variance.
+
+- `usnetelec`
+- `usgdp`
+- `mcopper`
+- `enplanements`
+
+### `usnetelec`
+
+Description: Annual US net electricity generation (billion kwh) for 1949-2003
+
+```{r usnetelec}
+usnetelec <- expsmooth::usnetelec
+# before BoxCox
+autoplot(usnetelec)
+frequency(usnetelec)
+# ggseasonplot(usnetelec)
+# ggseasonplot(usnetelec, polar = TRUE)
+# ggsubseriesplot(usnetelec)
+ggAcf(usnetelec)
+lambda <- BoxCox.lambda(usnetelec)
+lambda
+# after BoxCox
+autoplot(BoxCox(usnetelec,lambda))
+```
+
+The `usnetelec` series does not show any seasonality in the time, or ACF plots, so there is no increase in seasonal variation that corresponds with the increase in the level of the series.  Therefore, a Box-Cox transformation does not make sense in this case.  This can be seen in the before and after Box-Cox plots as well which show almost no change in the variation  after the transformation. 
+
+### `usgdp`
+
+Description: Quarterly US GDP. 1947:1 - 2006.1.
+
+```{r usgdp}
+usgdp <- expsmooth::usgdp
+# before BoxCox
+autoplot(usgdp)
+frequency(usgdp)
+ggseasonplot(usgdp)
+ggseasonplot(usgdp, polar = TRUE)
+ggsubseriesplot(usgdp)
+ggAcf(usgdp)
+lambda <- BoxCox.lambda(usgdp)
+lambda
+# after BoxCox
+autoplot(BoxCox(usgdp,lambda))
+```
+
+The `usgdp` series does not show any seasonality in the time, season, subseries or ACF plots, so there is no increase in seasonal variation (or seasonal variation at all for that matter) to correspond with the increase in the level of the series.  Therefore, a Box-Cox transformation does not make sense in this case.  This can be seen in the before and after Box-Cox plots as well which show almost no change in the variation  after the transformation.
+
+### `mcopper`
+
+Description: Monthly copper prices. Copper, grade A, electrolytic wire bars/cathodes,LME,cash (pounds/ton) 
+
+Source: UNCTAD <http://stats.unctad.org/Handbook>.
+
+```{r mcopper}
+mcopper <- expsmooth::mcopper
+# before BoxCox
+autoplot(mcopper)
+frequency(mcopper)
+ggseasonplot(mcopper)
+ggseasonplot(mcopper, polar = TRUE)
+ggsubseriesplot(mcopper)
+ggAcf(mcopper)
+lambda <- BoxCox.lambda(mcopper)
+lambda
+# after BoxCox
+autoplot(BoxCox(mcopper,lambda))
+```
+
+Once again, the `mcopper` series does not show any seasonality in the time, season, subseries or ACF plots, so there is no increase in seasonal variation (or seasonal variation at all) to correspond with the increase in the level of the series.  Therefore, a Box-Cox transformation does not make sense in this case.  This can be seen in the before and after Box-Cox plots as well which show almost no change in the variation  after the transformation.
+
+### `enplanements`
+
+Description: "Domestic Revenue Enplanements (millions): 1996-2000. 
+
+Source: Department of Transportation, Bureau of Transportation Statistics, Air Carrier Traffic Statistic Monthly.
+
+```{r enplanements}
+enplanements <- expsmooth::enplanements
+# before BoxCox
+autoplot(enplanements)
+frequency(enplanements)
+ggseasonplot(enplanements)
+ggseasonplot(enplanements, polar = TRUE)
+ggsubseriesplot(enplanements)
+ggAcf(enplanements)
+lambda <- BoxCox.lambda(enplanements)
+lambda
+# after BoxCox
+autoplot(BoxCox(enplanements,lambda))
+```
+
+The `enplanements` series is the only one of the four that shows a clear seasonality that increases with the increase in the level of the series, so it is the only one of the four series for which a Box-Cox transformation is warranted and useful.  You can see this in the before and after Box-Cox plots as well which show a evening out of the seasonal variation so that it becomes relatively consistent throughout the series.  
+
+## Exercise 3.2
+
+Why is a Box-Cox transformation unhelpful for the `cangas` data?
+
+Description: Monthly Canadian gas production, billions of cubic metres, January 1960 - February 2005
+
+```{r cangas}
+cangas <- expsmooth::cangas
+autoplot(cangas)
+lambda <- BoxCox.lambda(cangas)
+lambda
+autoplot(BoxCox(cangas,lambda))
+```
+
+As you can see from the before and after plots above the Box-Cox transformation did little if anything to even out the seasonal variation in the data.  In fact it may have even made it worse.  Mathematical transformations are helpful "If the data show variation that increases or decreases with the level of the series"^[Hyndman, R.J., & Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. OTexts.com/fpp2. Accessed on February 16, 2020.], however the seasonal variation does not increase or decrease with the level of the series in this case.  The largest seasonal fluctuations in the `cangas` data are actually at a time when there is little to no discernible increase in the level of the series at all.  There does not seem to be any correlation between the level of the series and the amount of seasonal fluctuation.  
+
+## Exercise 3.3
+
+What Box-Cox transformation would you select for your retail data (from Exercise 3 in Section 2.10)?
+
+Reminder: These represent retail sales in various categories for different Australian states.
+
+Considering that these are sales forecasts we would want to use a bias-adjusted forecast.  We would need to select the argument `biasadj=TRUE` when using a Box-Cox transformation in our forecasting methods.
+
+```{r retail_xlsx}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+head(retaildata)
+
+myts <- ts(retaildata[,"A3349335T"],
+  frequency=12, start=c(1982,4))
+autoplot(myts)
+
+lambda <- BoxCox.lambda(myts)
+lambda
+autoplot(BoxCox(myts,lambda))
+```
+
+We can see from the before and after plots above that a Box-Cox transformation with $\lambda =$ `r lambda` on the retail series is helpful in stabilizing the seasonal variance.  
+
+```{r warning=FALSE, message=FALSE}
+# Plot some forecasts
+autoplot(myts) +
+  autolayer(meanf(myts, h=76, lambda='auto', biasadj = TRUE),
+            series="Mean", PI=FALSE) +
+  autolayer(rwf(myts, h=76, lambda='auto', drift=TRUE, biasadj = TRUE),
+            series="Naïve drift method", PI=FALSE) +
+  autolayer(snaive(myts, h=76, lambda='auto', drift=TRUE, biasadj = TRUE),
+            series="Seasonal naïve", PI=FALSE) +
+  ggtitle("Forecasts for retail sales") +
+  xlab("Year") + ylab("Australian Dollars") +
+  guides(colour=guide_legend(title="Forecast"))
+```
+
+
+## Exercise 3.8
+
+For your retail time series (from Exercise 3 in Section 2.10):
+
+### a. Split the data into two parts using
+
+```{r}
+myts.train <- window(myts, end=c(2010,12))
+myts.test <- window(myts, start=2011)
+```
+
+### b. Check that your data have been split appropriately by producing the following plot.
+
+```{r fig.width=7}
+autoplot(myts) +
+  autolayer(myts.train, series="Training") +
+  autolayer(myts.test, series="Test")
+```
+
+### c. Calculate forecasts using snaive applied to myts.train.
+
+```{r}
+fc <- snaive(myts.train)
+```
+
+### d. Compare the accuracy of your forecasts against the actual values stored in myts.test.
+
+```{r}
+data.frame(accuracy(fc,myts.test))
+```
+
+### e. Check the residuals.
+
+```{r fig.width=7}
+checkresiduals(fc)
+```
+
+Do the residuals appear to be uncorrelated and normally distributed?
+
+The residuals do not appear to be uncorrelated or normally distributed.  The p-value is extremely low and in the ACF plot above you can see that most of the lags extend far beyond the significance range (between the blue lines).  Lags beyond this range are significantly different from zero.  The histogram shows a clear right skew.
+
+### f. How sensitive are the accuracy measures to the training/test split?
+
+```{r}
+train2 <- window(myts, end = c(2008, 12))
+test.BIG <- window(myts, start = 2009)
+
+train3 <- window(myts, end = c(2012, 12))
+test.small <- window(myts, start = 2013)
+fc.BIG <- snaive(train2)
+fc.small <- snaive(train3)
+```
+
+```{r fig.width=7}
+autoplot(myts) +
+  autolayer(fc, series = "Orig Split", PI = FALSE) +
+  autolayer(fc.BIG, series = "Large Test Group", PI = FALSE) +
+  autolayer(fc.small, series = "Small Test Group", PI = FALSE) +
+  ggtitle("Split Comparison") + 
+  guides(colour = guide_legend(title = "Forecasts"))
+```
+
+```{r}
+data.frame(accuracy(fc, myts.test))
+data.frame(accuracy(fc.BIG, test.BIG))
+data.frame(accuracy(fc.small, test.small))
+```
+
+The accuracy measures are very sensitive to the training/test split.  There is a big difference in the measures depending on how small or large we make the split.  
+
+## Footnotes

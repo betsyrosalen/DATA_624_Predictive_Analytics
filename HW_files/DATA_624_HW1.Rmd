@@ -1,0 +1,257 @@
+---
+title: "DATA624 HW1"
+subtitle: "Time Series Graphics"
+author: "Betsy Rosalen"
+date: "2/8/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 5
+      fig_height: 4
+      highlight: tango
+      toc: yes
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+library(ggplot2)
+library(forecast)
+```
+
+## Exercise 2.1
+
+Use the help function to explore what the series `gold`, `woolyrnq` and `gas` represent.
+
+Use `autoplot()` to plot each of these in separate plots.
+What is the frequency of each series? Hint: apply the `frequency()` function.
+Use `which.max()` to spot the outlier in the gold series. Which observation was it?
+
+### `gold`
+
+```{r 2point1gold}
+??gold
+```
+
+Help pages:  
+forecast::gold		Daily morning gold prices
+
+```{r gold_eda}
+gold <- forecast::gold
+autoplot(gold)
+gold_f <- frequency(gold)
+gold_f
+```
+
+Gold prices have a frequency of `r gold_f` indicating an annual seasonal pattern.
+
+```{r max_gold}
+max_gold <- which.max(gold)
+max_gold
+```
+
+Observation `r max_gold` represents that highest peak or outlier `gold` in the dataset.
+
+### `woolyrnq`
+
+```{r 2point1woolyrnq}
+??woolyrnq
+```
+
+Help pages:  
+forecast::woolyrnq		Quarterly production of woollen yarn in Australia
+
+```{r woolyrnq_eda}
+wool <- forecast::woolyrnq
+autoplot(wool)
+wool_f <- frequency(wool)
+wool_f
+```
+
+Woollen yarn in Australia has a frequency of `r wool_f` indicating a quarterly seasonal pattern.
+
+### `gas`
+
+```{r 2point1gas}
+??gas
+```
+
+Help pages:  
+forecast::gas		Australian monthly gas production
+
+```{r gas_eda}
+gas <- forecast::gas
+autoplot(gas)
+gas_f <- frequency(gas)
+gas_f
+```
+
+Australian gas production has a frequency of `r gas_f` indicating a monthly seasonal pattern.
+
+## Exercise 2.2
+
+Download the file `tute1.csv` from the book website, open it in Excel (or some other spreadsheet application), and review its contents. You should find four columns of information. Columns B through D each contain a quarterly series, labelled Sales, AdBudget and GDP. Sales contains the quarterly sales for a small company over the period 1981-2005. AdBudget is the advertising budget and GDP is the gross domestic product. All series have been adjusted for inflation.
+
+#### a.  You can read the data into R with the following script:
+
+```{r tute_csv}
+tute1 <- read.csv("tute1.csv", header=TRUE)
+head(tute1)
+```
+
+#### b.  Convert the data to time series
+
+```{r tute_ts}
+mytimeseries <- ts(tute1[,-1], start=1981, frequency=4)
+```
+
+(The [,-1] removes the first column which contains the quarters as we don’t need them now.)
+
+#### c.  Construct time series plots of each of the three series
+
+```{r tute_plots}
+autoplot(mytimeseries, facets=TRUE)
+```
+
+Check what happens when you don’t include facets=TRUE.
+
+```{r 2point2_tute}
+autoplot(mytimeseries, facets=FALSE)
+```
+
+## Exercise 2.3
+
+Download some monthly Australian retail data from the book website. These represent retail sales in various categories for different Australian states, and are stored in a MS-Excel file.
+
+#### a.  You can read the data into R with the following script:
+
+```{r retail_xlsx}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+head(retaildata)
+```
+
+The second argument (`skip=1`) is required because the Excel sheet has two header rows.
+
+#### b. Select one of the time series as follows (but replace the column name with your own chosen column):
+
+```{r retail_ts}
+myts <- ts(retaildata[,"A3349335T"],
+  frequency=12, start=c(1982,4))
+```
+
+#### c. Explore your chosen retail time series using the following functions:
+
+`autoplot()`, `ggseasonplot()`, `ggsubseriesplot()`, `gglagplot()`, `ggAcf()`
+
+```{r retail_autoplot}
+autoplot(myts)
+```
+
+Looks like there is an annual seasonal pattern as well as an overall upward trend in the data.  
+
+```{r retail_seasonplot}
+ggseasonplot(myts)
+```
+
+Looks like there is a moderate increase in sales in December (likely due to the holidays) and possibly a small decrease in February.
+
+```{r retail_subseriesplot}
+ggsubseriesplot(myts)
+```
+
+The patterns we saw in the seasonal plot above are even more evident in the subseries plot.  The difference in February is so small that it may not be statistically significant however.  February's numbers are only slightly smaller on average than April and June.  
+
+```{r retail_lagplot}
+gglagplot(myts)
+```
+
+Here the annual seasonality is clear in the 'lag 12' plot showing an incredibly strong linear relationship between sales figures from one year to the same month the next year.  
+
+```{r retail_Acf}
+ggAcf(myts)
+```
+
+We can see the upward trend in the data in the downward slope of the autocorrelation function (ACF) plot.
+
+#### Can you spot any seasonality, cyclicity and trend? What do you learn about the series?
+
+As noted in the comments after each plot above you can see an annual seasonal pattern as well as an overall upward trend in the plots.
+
+## Exercise 2.6
+
+Use the following graphics functions: `autoplot()`, `ggseasonplot()`, `ggsubseriesplot()`, `gglagplot()`, `ggAcf()` and explore features from the following time series: `hsales`, `usdeaths`, `bricksq`, `sunspotarea`, `gasoline`.
+
+- Can you spot any seasonality, cyclicity and trend?
+- What do you learn about the series?
+
+### `hsales`
+
+```{r hsales_eda}
+hsales <- fma::hsales
+autoplot(hsales)
+ggseasonplot(hsales)
+ggsubseriesplot(hsales)
+gglagplot(hsales)
+ggAcf(hsales)
+```
+
+You can see an annual seasonal pattern that peaks in March (and is most evident in the subseries plot and the 'scalloped' ACF plots) as well as some cyclicity with peaks around 1978, 1987 and a smaller peak around 1994 (seen in the time plot) in the plots of the `hsales` data, which represents the monthly sales of new one-family houses sold in the US.  An overall upward trend that is not evident in the earlier plots can be seen in the ACF plot's progressive decrease.
+
+### `usdeaths`
+
+```{r usdeaths_eda}
+usdeaths <- fma::usdeaths
+autoplot(usdeaths)
+ggseasonplot(usdeaths)
+ggsubseriesplot(usdeaths)
+gglagplot(usdeaths)
+ggAcf(usdeaths)
+```
+
+A very clear annual seasonal pattern that peaks in July can be seen the time plot, as well as in the season plot, the subseries plot and the 'scalloped' ACF plot.  No cyclicity or trend is evident in the plots of the `usdeaths` data, which represents the Monthly accidental deaths in USA.  
+
+### `bricksq`
+
+```{r bricksq_eda}
+bricksq <- fma::bricksq
+autoplot(bricksq)
+ggseasonplot(bricksq)
+ggsubseriesplot(bricksq)
+gglagplot(bricksq)
+ggAcf(bricksq)
+```
+
+The plots of the `bricksq` data representing Australian quarterly clay brick production show some quarterly seasonality (that peaks in the 3rd quarter) in the time, seasonal, subseries and ACF plots, as well as an upward trend in the time and ACF plots.  Some cyclicity can also be seen in the large dips around 1975, 1983, and possibly 1991 in the time plot.  
+
+### `sunspotarea`
+
+```{r sunspotarea_eda}
+sunspotarea <- fpp2::sunspotarea # not in fpp3
+autoplot(sunspotarea)
+# ggseasonplot(sunspotarea)
+# ggsubseriesplot(sunspotarea)
+gglagplot(sunspotarea)
+ggAcf(sunspotarea)
+```
+
+The `sunspotarea` data, which represents the annual averages of the daily sunspot areas (in units of millionths of a hemisphere) for the full sun, does not show any seasonality but does show a strong cyclicity repeating about every 10 years.  seasonal and subseries plots could not be run since the data is not seasonal, and a possible upward trend may be evident in the ACF plot especially, but also in the time plot.  
+
+### `gasoline`
+
+```{r gasoline_eda}
+gasoline <- fpp2::gasoline
+autoplot(gasoline)
+ggseasonplot(gasoline) # only works with fpp2 data
+frequency(gasoline)
+# ggsubseriesplot(gasoline) # only works with fpp2 data # need additional parameter for weekly (non-integer) frequency?
+gglagplot(gasoline)
+ggAcf(gasoline)
+```
+
+The plots of the `gasoline` data representing weekly US finished motor gasoline product supplied in "million barrels per day" show some annual seasonality that is most evident in the seasonal and ACF plots, as well as an upward trend in the time and ACF plots.  There may also be some cyclicity seen in the dip in the time plot from around 2007 to 2013 but it's hard to tell for sure without a longer time series.  
