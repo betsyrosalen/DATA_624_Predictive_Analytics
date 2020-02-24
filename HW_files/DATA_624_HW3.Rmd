@@ -1,0 +1,174 @@
+---
+title: "DATA624 HW3"
+subtitle: "Time series decomposition"
+author: "Betsy Rosalen"
+date: "2/23/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 7
+      fig_height: 4
+      highlight: tango
+      toc: yes
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(fpp3)
+library(ggplot2)
+library(forecast)
+library(seasonal)
+library(kableExtra)
+```
+
+## Exercise 6.2
+
+The `plastics` data set consists of the monthly sales (in thousands) of product A for a plastics manufacturer for five years.
+
+### a. Plot the time series of sales of product A. Can you identify seasonal fluctuations and/or a trend-cycle?
+
+Description: Monthly sales of product A for a plastics manufacturer.
+
+```{r}
+plastics <- fma::plastics
+# before BoxCox
+autoplot(plastics)
+frequency(plastics)
+ggseasonplot(plastics)
+ggseasonplot(plastics, polar = TRUE)
+ggsubseriesplot(plastics)
+ggAcf(plastics)
+```
+
+There is a clear annual seasonal pattern that peaks around August and September as well as an overall upward trend in the `plastics` time series that is evident in all of the plots above.  
+
+### b. Use a classical multiplicative decomposition to calculate the trend-cycle and seasonal indices.
+
+```{r}
+plastics %>% decompose(type="multiplicative") %>%
+  autoplot() + xlab("Year") +
+  ggtitle("Classical multiplicative decomposition
+    of plastics time series")
+```
+
+### c. Do the results support the graphical interpretation from part a?
+
+Yes, we can clearly see the annual seasonal pattern in the second plot and the upward trend in the third plot.  
+
+### d. Compute and plot the seasonally adjusted data.
+
+```{r}
+adj_plastics <- ts(plastics, start=c(1998,1),  frequency=12)
+adj_plastics %>% seas(x11="") -> fit
+
+autoplot(adj_plastics, series="Data") +
+  autolayer(seasadj(fit), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("Sales") +
+  ggtitle("Sales of product A for a plastics manufacturer") +
+  scale_colour_manual(values=c("gray", "red"),
+             breaks=c("Data","Seasonally Adjusted"))
+```
+
+### e. Change one observation to be an outlier (e.g., add 500 to one observation), and recompute the seasonally adjusted data. What is the effect of the outlier?
+
+```{r}
+new_plastics <- adj_plastics
+new_plastics[30] <- new_plastics[30]+500
+
+new_plastics %>% seas(x11="") -> fit2
+
+autoplot(new_plastics, series="Data") +
+  autolayer(seasadj(fit2), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("Sales") +
+  ggtitle("Sales of product A for a plastics manufacturer with added outlier") +
+  scale_colour_manual(values=c("gray", "red"),
+             breaks=c("Data","Seasonally Adjusted"))
+```
+
+The outlier creates a large but narrow spike in both the plot of the original data and a corresponding spike of about the same size in the plot of the seasonally adjusted data but otherwise doesn't have much effect on the rest of the series.  The rest of the seasonally adjusted plot has about the same shape as it did before and is at the same level.
+
+### f. Does it make any difference if the outlier is near the end rather than in the middle of the time series?
+
+```{r}
+new_plastics2 <- adj_plastics
+new_plastics2[58] <- new_plastics2[58]+500
+
+fit3 <- new_plastics2 %>% seas(x11="")
+
+autoplot(new_plastics2, series="Data") +
+  autolayer(seasadj(fit3), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("Sales") +
+  ggtitle("Sales of product A for a plastics manufacturer with added outlier") +
+  scale_colour_manual(values=c("gray", "red"),
+             breaks=c("Data","Seasonally Adjusted"))
+```
+
+It doesn't seem to make any difference if the outlier is at the middle or the end of the time series except for the location of the spike.  
+
+## Exercise 6.3
+
+Recall your retail time series data (from Exercise 3 in Section 2.10). Decompose the series using X11. Does it reveal any outliers, or unusual features that you had not noticed previously?
+
+```{r retail_xlsx}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+head(retaildata)
+
+retail <- ts(retaildata[,"A3349335T"],
+  frequency=12, start=c(1982,4))
+
+fit4 <- retail %>% seas(x11="")
+autoplot(fit4) +
+  ggtitle("X11 decomposition of retail time series with Box-Cox Transformation")
+```
+
+```{r}
+autoplot(retail, series="Data") +
+  autolayer(trendcycle(fit4), series="Trend") +
+  autolayer(seasadj(fit4), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("Sales") +
+  ggtitle("Retail Sales Time Series") +
+  scale_colour_manual(values=c("gray","blue","red"),
+             breaks=c("Data","Seasonally Adjusted","Trend"))
+```
+
+The only feature that is slightly surprising to me is how the seasonal plot actually shows more variation in the beginning of the series than at the end of the series despite the fact that the time plot shows a seasonal variation that increases with the trend and the level of the series.
+
+```{r}
+fit4 %>% seasonal() %>% ggsubseriesplot() + ylab("Seasonal")
+```
+
+The seasonal sub-series plot shows rather large increases over time in January and March a somewhat large decrease in Jun and a very large decrease over time in December.
+
+### Box-Cox Transformed Data
+
+Let's try the X11 decomposition again after a Box-Cox transformation since we saw in the last assignment that a Box-Cox Transformation was helpful in stabilizing the seasonal variations over time and the textbook indicates in section 6.1 that "An alternative to using a multiplicative decomposition is to first transform the data until the variation in the series appears to be stable over time, then use an additive decomposition" and in section 6.4 that X11 "handles both additive and multiplicative decomposition."^[Hyndman, R.J., & Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. OTexts.com/fpp2. Accessed on February 23, 2020.]  So let's give it a shot and see what happens...
+
+```{r}
+lambda <- BoxCox.lambda(retail)
+lambda
+
+fit5 <- BoxCox(retail,lambda) %>% seas(x11="")
+autoplot(fit5) +
+  ggtitle("X11 decomposition of retail time series with Box-Cox Transformation")
+```
+
+```{r}
+autoplot(BoxCox(retail,lambda), series="Data") +
+  autolayer(trendcycle(fit5), series="Trend") +
+  autolayer(seasadj(fit5), series="Seasonally Adjusted") +
+  xlab("Year") + ylab("Sales") +
+  ggtitle("Retail Sales Time Series") +
+  scale_colour_manual(values=c("gray","blue","red"),
+             breaks=c("Data","Seasonally Adjusted","Trend"))
+```
+
+Looks like the combination of Box-Cox transformation and X11 decomposition resulted in a more consistent variance but I'm not quite sure what's going on with that remainder plot!
+
+
+## Footnotes
