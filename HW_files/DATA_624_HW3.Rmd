@@ -170,5 +170,24 @@ autoplot(BoxCox(retail,lambda), series="Data") +
 
 Looks like the combination of Box-Cox transformation and X11 decomposition resulted in a more consistent variance but I'm not quite sure what's going on with that remainder plot!
 
+### UPDATE: 2/25/2020
+
+#### I think I figured this out!  
+
+Thanks to Simon(?) in class who pointed out that I had to back transform the data afterward...
+
+```{r}
+back_fit <- fit5
+back_fit$data <- InvBoxCox(back_fit$data, lambda, biasadj = FALSE, fvar = NULL)
+
+autoplot(back_fit) +
+  ggtitle("X11 decomposition with Box-Cox Transformation backtransformed!")
+```
+
+Still not sure this is quite right.  I got the plot to look right, but not sure what else might be wrong with the data.  All of this is probably not right...  Still trying to figure all of this stuff out, but in the meantime, this may not be a good idea...
+
+```{r}
+back_fit
+```
 
 ## Footnotes
