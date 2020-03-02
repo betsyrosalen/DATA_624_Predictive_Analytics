@@ -5,7 +5,7 @@ author: "Betsy Rosalen"
 date: "3/1/2020"
 output: 
     html_document: 
-      code_folding: show
+      code_folding: hide
       css: ./style.css
       df_print: kable
       fig_caption: yes
@@ -55,6 +55,9 @@ kable(summary(Glass[,6:10]))%>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
+There 9 numerical predictors (`RI`, `Na`, `Mg`, `Al`, `Si`, `K`, `Ca`, `Ba`, and `Fe`) and one categorical target with 6 levels (`Type`).  The data set is highly skewed toward categories 1 and 2 with 146 out of 214 observations falling into those two categories alone.   `Ba`, and `Fe` have their first quartile value at 0 indicating that they have a lot of zeros in their distributions.
+
+
 ```{r fig.height=7}
 Glass[,1:9] %>%
   gather() %>% 
@@ -64,11 +67,13 @@ Glass[,1:9] %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
+Histograms of the predictors show that all of them exceept maybe one, `Si` are moderately to highly skewed.  The histogram below has been colored by the target categories and shows that the distributions for different targets values are slightly different (especially for `Al` and `Na`) indicating that those variables may be good predictors.  
+
 ```{r fig.height=7}
 Glass %>%
   gather(-Type, key = "var", value = "val") %>%
-  ggplot(aes(x = val, fill=factor(Type))) +
-  geom_histogram(position="dodge", bins=6, alpha=1) +
+  ggplot(aes(x = val, fill=Type)) +
+  geom_histogram(bins=10, alpha=1) +
   facet_wrap(~ var, scales = "free") +
   scale_fill_manual("target",
                     values = c('#d73027','#fc8d59','#fee090','#e0f3f8','#91bfdb','#4575b4')) +
@@ -76,6 +81,8 @@ Glass %>%
   ylab("") +
   theme(panel.background = element_blank(), legend.position="top")
 ```
+
+Those differences in the distrubtions of the predictors when sepaarated by the target variable are even more evident in the bar plots below.  All of the predictors shoow a lot of variation in their distributions for each target value.  We can also see a lot of outliers which are indicated by the red dots to the top and bottom of the plot 'whiskers'.
 
 ```{r fig.height=12}
 Glass %>%
@@ -92,14 +99,16 @@ Glass %>%
   theme(panel.background=element_blank())
 ```
 
-```{r}
+Only `RI` and `Ca` seem to be very highly correlated with each other with a correlation of about 0.81.
+
+```{r eval=FALSE, include=FALSE}
 Glass[,1:9] %>% 
   ggpairs(alpha=0.6, fill = '#4575b4') +
   theme(panel.background=element_blank(), legend.position="top",
         axis.text.x = element_text(angle=-40, vjust=1, hjust=0))
 ```
 
-```{r}
+```{r fig.height=6, fig.width=6}
 corrs <- round(cor(Glass[,1:9]),3)
 ggcorrplot::ggcorrplot(corrs,
        type = 'lower', lab=T, lab_size=2)
@@ -114,8 +123,17 @@ Glass %>%
         axis.text.x = element_text(angle=-40, vjust=1, hjust=0))
 ```
 
-```{r}
+There are no missing values in the dataset.
+
+```{r eval=FALSE, include=FALSE}
 plot_missing(Glass) 
+```
+
+```{r}
+missing <- data.frame(t(apply(is.na(Glass), 2, sum)))
+# kable(missing, col.names = "NA's")
+row.names(missing) <- c("NA's")
+kable(missing)
 ```
 
 
