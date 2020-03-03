@@ -46,7 +46,7 @@ data(Glass)
 str(Glass)
 ```
 
-#### (a) Using visualizations, explore the predictor variables to understand their distributions as well as the relationships between predictors.
+### (a) Using visualizations, explore the predictor variables to understand their distributions as well as the relationships between predictors.
 
 ```{r}
 kable(summary(Glass[,1:5]))%>%
@@ -67,7 +67,7 @@ Glass[,1:9] %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
-Histograms of the predictors show that all of them exceept maybe one, `Si` are moderately to highly skewed.  The histogram below has been colored by the target categories and shows that the distributions for different targets values are slightly different (especially for `Al` and `Na`) indicating that those variables may be good predictors.  
+Histograms of the predictors show that all of them except maybe one, `Si` are moderately to highly skewed.  The histogram below has been colored by the target categories and shows that the distributions for different targets values are slightly different (especially for `Al` and `Na`) indicating that those variables may be good predictors.  
 
 ```{r fig.height=7}
 Glass %>%
@@ -82,7 +82,7 @@ Glass %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
-Those differences in the distrubtions of the predictors when sepaarated by the target variable are even more evident in the bar plots below.  All of the predictors shoow a lot of variation in their distributions for each target value.  We can also see a lot of outliers which are indicated by the red dots to the top and bottom of the plot 'whiskers'.
+Those differences in the distributions of the predictors when separated by the target variable are even more evident in the bar plots below.  All of the predictors show a lot of variation in their distributions for each target value.  We can also see a lot of outliers which are indicated by the red dots to the top and bottom of the plot 'whiskers'.
 
 ```{r fig.height=12}
 Glass %>%
@@ -133,21 +133,82 @@ plot_missing(Glass)
 missing <- data.frame(t(apply(is.na(Glass), 2, sum)))
 # kable(missing, col.names = "NA's")
 row.names(missing) <- c("NA's")
-kable(missing)
+kable(missing) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
+### (b) Do there appear to be any outliers in the data? Are any predictors skewed?
 
-#### (b) Do there appear to be any outliers in the data? Are any predictors skewed?
+As noted above most if not all of the predictors have both outliers and skewed distributions as well as a large percentage of zeroes in a few predictors.
+
+### (c) Are there any relevant transformations of one or more predictors that might improve the classification model?
 
 ```{r}
-
+skewness_statistic <- apply(Glass[,1:9], 2, skewness)
+ratio_max_to_min <- apply(Glass[,1:9], 2, max)/apply(Glass[,1:9], 2, min)
+kable(data.frame(skewness_statistic, ratio_max_to_min)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-#### (c) Are there any relevant transformations of one or more predictors that might improve the classification model?
+Because there are so many zero values in the data it's hard to estimate the severity of the skew using the max to min ratio since division by zero is undefined.   But we clearly have some large skewness values and can clearly see the skew in the histograms.
+
+The skewed distributions might be improved by log, square root, or inverse transformations or a Box-Cox transformation.
+
+Unfortunately because of the zero values `Mg`, `K`, `Ba`, and `Fe` cannot be transformed using Box-Cox.  I'm still not sure how to handle that although I found this post by Rob Hyndman on the subject... [Transforming data with zeros](https://robjhyndman.com/hyndsight/transformations/).
 
 ```{r}
-
+# https://stackoverflow.com/questions/46485024/how-to-use-boxcoxtrans-function-in-r
+GlassBC <- apply(Glass[,1:9], 2, BoxCoxTrans)
+trans_Glass <- purrr::map2(GlassBC, Glass[,1:9], function(x, y) predict(x, y)) 
+trans_Glass_df = as.data.frame(do.call(cbind, trans_Glass))
+kable(head(trans_Glass_df)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
+
+```{r fig.height=7}
+trans_Glass_df %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(fill = '#4575b4') +
+  theme(panel.background = element_blank(), legend.position="top")
+```
+
+I'm not seeing a lot of improvement in the histograms after transformation with Box-Cox so let's try something else...  Another post suggests three ways of handling the zeros:
+
+> - Add a constant value © to each value of variable then take a log transformation  
+> - Impute zero value with mean  
+> - Take square root instead of log for transformation^[[Methods to deal with zero values while performing log transformation of variable](https://discuss.analyticsvidhya.com/t/methods-to-deal-with-zero-values-while-performing-log-transformation-of-variable/2431)]
+
+```{r fig.height=7}
+# Square Root transformation
+Glass_SqRt <- data.frame(apply(Glass[,1:9], 2, sqrt))
+
+Glass_SqRt %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(fill = '#4575b4') +
+  theme(panel.background = element_blank(), legend.position="top")
+```
+
+The square root transformation seems to have done a little bit  better at taming our distributions, however they are still highly skewed in some cases.  
+
+Let's try one more of the suggestions by using $log(x+1)$ to transform our data.
+
+```{r fig.height=7}
+# log(x+1) transformation
+Glass_log <- data.frame(apply(Glass[,1:9]+1, 2, log))
+
+Glass_log %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(fill = '#4575b4') +
+  theme(panel.background = element_blank(), legend.position="top")
+```
+
+Maybe a little better but still not great!
 
 ## Exercise 3.2
 
@@ -164,8 +225,25 @@ data(Soybean)
 #### (a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
 
 ```{r}
-
+# freq.dist <- apply(Soybean, 2, table)
+kable(summary(Soybean[,1:6])) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(summary(Soybean[,7:12])) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(summary(Soybean[,13:18])) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(summary(Soybean[,19:24])) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(summary(Soybean[,25:30])) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(summary(Soybean[,31:36])) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
+
+```{r}
+barplot(summary(Soybean$Class))
+```
+
 
 #### (b) Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
 
