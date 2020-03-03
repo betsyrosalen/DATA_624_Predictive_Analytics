@@ -40,7 +40,7 @@ library(lattice)
 
 The data can be accessed via:
 
-```{r}
+```{r class.source = NULL}
 library(mlbench)
 data(Glass)
 str(Glass)
@@ -114,7 +114,6 @@ ggcorrplot::ggcorrplot(corrs,
        type = 'lower', lab=T, lab_size=2)
 ```
 
-
 ```{r}
 Glass %>% 
   ggscatmat(color="Type", alpha=0.6) +
@@ -122,6 +121,13 @@ Glass %>%
   theme(panel.background=element_blank(), legend.position="top",
         axis.text.x = element_text(angle=-40, vjust=1, hjust=0))
 ```
+
+```{r}
+highCorr <- findCorrelation(corrs, .75)
+highCorr
+```
+
+The `findCorrelation` function suggests removing column `r highCorr` which corresponds to `r names(Glass)[7]`.
 
 There are no missing values in the dataset.
 
@@ -134,7 +140,7 @@ missing <- data.frame(t(apply(is.na(Glass), 2, sum)))
 # kable(missing, col.names = "NA's")
 row.names(missing) <- c("NA's")
 kable(missing) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+  kable_styling(bootstrap_options = c("condensed"))
 ```
 
 ### (b) Do there appear to be any outliers in the data? Are any predictors skewed?
@@ -176,9 +182,11 @@ trans_Glass_df %>%
 
 I'm not seeing a lot of improvement in the histograms after transformation with Box-Cox so let's try something else...  Another post suggests three ways of handling the zeros:
 
-> - Add a constant value © to each value of variable then take a log transformation  
-> - Impute zero value with mean  
-> - Take square root instead of log for transformation^[[Methods to deal with zero values while performing log transformation of variable](https://discuss.analyticsvidhya.com/t/methods-to-deal-with-zero-values-while-performing-log-transformation-of-variable/2431)]
+>1. Add a constant value © to each value of variable then take a log transformation  
+>2. Impute zero value with mean  
+>3. Take square root instead of log for transformation^[[Methods to deal with zero values while performing log transformation of variable](https://discuss.analyticsvidhya.com/t/methods-to-deal-with-zero-values-while-performing-log-transformation-of-variable/2431)]
+
+Let's try the square root transformation first.
 
 ```{r fig.height=7}
 # Square Root transformation
@@ -208,7 +216,31 @@ Glass_log %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
-Maybe a little better but still not great!
+Maybe a little better, but still not great!
+
+```{r}
+nearZeroVar(Glass)
+```
+
+The `caret` function `nearZeroVar` does not indicate that the variabes with high frequenciees of zeroes should be removed so another solution might be to try the alternative Box-Cox transformation that Hyndman suggested in his blog post.^[[Transforming data with zeros](https://robjhyndman.com/hyndsight/transformations/)]
+
+```{r fig.height=7}
+Alt_BoxCox_Glass <- log1p(Glass[,1:9])
+head(Alt_BoxCox_Glass)
+```
+
+```{r}
+Alt_BoxCox_Glass %>%
+  gather() %>% 
+  ggplot(aes(value)) +
+    facet_wrap(~ key, scales = "free") +
+    geom_histogram(fill = '#4575b4') +
+  theme(panel.background = element_blank(), legend.position="top")
+```
+
+I think that in this case it mght be necessary to know if these are real zeroes, or '**censored**' data where the zeroes may actually be trace amounts that are below the detection limit.  In this case Kuhn and Johnson state:
+
+>when a sample has a value below the limit of detection, the actual limit can be used in place of the real value. For this situation, it is also common to use a random number between zero and the limit of detection.^[Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. New York: Springer.]
 
 ## Exercise 3.2
 
@@ -216,7 +248,7 @@ The soybean data can also be found at the UC Irvine Machine Learning Repository.
 
 The data can be loaded via:
 
-```{r}
+```{r class.source = NULL}
 # library(mlbench)
 data(Soybean)
 ## See ?Soybean for details
