@@ -13,6 +13,7 @@ output:
       fig_height: 12
       highlight: tango
       toc: yes
+      toc_depth: 2
       toc_float:
         collapsed: no
         smooth_scroll: no
@@ -20,6 +21,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(mlbench) # for data sets
 library(tidyr)
 library(dplyr)
 library(ggplot2)
@@ -32,7 +34,9 @@ library(caret)
 library(corrplot)
 library(e1071)
 library(lattice)
-library(naniar)
+library(tibble) # for `rownames_to_column` 
+library(naniar) # for missing data viz
+library(forcats) # for imputing missing values
 ```
 
 ## Exercise 3.1
@@ -48,7 +52,6 @@ str(Glass)
 ```
 
 ```{r}
-library(mlbench)
 data(Glass)
 str(Glass)
 ```
@@ -62,7 +65,7 @@ kable(summary(Glass[,6:10]))%>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 ```
 
-There 9 numerical predictors (`RI`, `Na`, `Mg`, `Al`, `Si`, `K`, `Ca`, `Ba`, and `Fe`) and one categorical target with 6 levels (`Type`).  The data set is highly skewed toward categories 1 and 2 with 146 out of 214 observations falling into those two categories alone.   `Ba`, and `Fe` have their first quartile value at 0 indicating that they have a lot of zeros in their distributions.
+There 9 numerical predictors (`RI`, `Na`, `Mg`, `Al`, `Si`, `K`, `Ca`, `Ba`, and `Fe`) and one categorical target with 6 levels (`Type`).  The data set is highly skewed toward categories 1 and 2 with 146 out of 214 observations falling into those two categories alone.   `Ba`, and `Fe` have their first quartile and median values at 0 indicating that they have a lot of zeros in their distributions.
 
 
 ```{r fig.height=7}
@@ -74,7 +77,7 @@ Glass[,1:9] %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
-Histograms of the predictors show that all of them except maybe one, `Si` are moderately to highly skewed.  The histogram below has been colored by the target categories and shows that the distributions for different targets values are slightly different (especially for `Al` and `Na`) indicating that those variables may be good predictors.  
+Histograms of the predictor distributions show that all of them except maybe one, `Si` are moderately to highly skewed.  The histogram below has been colored by the target categories and shows that the distributions for different target values are slightly different (especially for `Al` and `Na`) indicating that those variables may be good predictors. Almost all of the zero values in `Mg` belong in categories 5, 6 and 7 and almost all of the non-zero values in `Ba` correspond to category 7, so treating zeroes as missing data would probably reduce the predictive accuracy of our model.
 
 ```{r fig.height=7}
 Glass %>%
@@ -89,7 +92,7 @@ Glass %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
-Those differences in the distributions of the predictors when separated by the target variable are even more evident in the bar plots below.  All of the predictors show a lot of variation in their distributions for each target value.  We can also see a lot of outliers which are indicated by the red dots to the top and bottom of the plot 'whiskers'.
+Those differences in the distributions of the predictors when separated by the target variable are even more evident in the bar plots below.  All of the predictors show a lot of variation in their distributions for each target value.  The plot for `Si` has the least difference in the distributions for each category indicating that it may have less predictive value.  We can also see a lot of outliers indicated by the red dots to the top and bottom of the plot 'whiskers'. There are some really extreme outliers like the two at the top of the `Ba` plot, one at the top of the `K` plot, etc...
 
 ```{r fig.height=12}
 Glass %>%
@@ -106,7 +109,7 @@ Glass %>%
   theme(panel.background=element_blank())
 ```
 
-Only `RI` and `Ca` seem to be very highly correlated with each other with a correlation of about 0.81.
+Only `RI` and `Ca` seem to be very highly correlated with each other with a correlation statistic of about 0.81.
 
 ```{r eval=FALSE, include=FALSE}
 Glass[,1:9] %>% 
@@ -120,6 +123,8 @@ corrs <- round(cor(Glass[,1:9]),3)
 ggcorrplot::ggcorrplot(corrs,
        type = 'lower', lab=T, lab_size=2)
 ```
+
+The correlation plot below has been colored by the target variable and shows some clear patterns in the distributions by `Type` confirming what we noted above.   
 
 ```{r}
 Glass %>% 
@@ -136,17 +141,17 @@ highCorr
 
 The `findCorrelation` function suggests removing column `r highCorr` which corresponds to `r names(Glass)[7]`.
 
-There are no missing values in the dataset.
+There are no missing values in the data set.
 
 ```{r eval=FALSE, include=FALSE}
 plot_missing(Glass) 
 ```
 
-```{r}
+```{r }
 missing <- data.frame(t(apply(is.na(Glass), 2, sum)))
 # kable(missing, col.names = "NA's")
 row.names(missing) <- c("NA's")
-kable(missing) %>%
+kable(missing, caption='Missing Values in the Glass Dataset') %>%
   kable_styling(bootstrap_options = c("condensed"))
 ```
 
@@ -193,7 +198,7 @@ I'm not seeing a lot of improvement in the histograms after transformation with 
 >2. Impute zero value with mean  
 >3. Take square root instead of log for transformation^[[Methods to deal with zero values while performing log transformation of variable](https://discuss.analyticsvidhya.com/t/methods-to-deal-with-zero-values-while-performing-log-transformation-of-variable/2431)]
 
-Let's try the square root transformation first.
+As noted before the zero values have predictive value and do not seem to be data collection errors, so imputing them with the mean would not be a good choice, so let's try the square root transformation first.
 
 ```{r fig.height=7}
 # Square Root transformation
@@ -230,7 +235,9 @@ kable(nearZeroVar(Glass, names = TRUE, saveMetrics=TRUE)) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-The `caret` function `nearZeroVar` does not indicate that the variabes with high frequenciees of zeroes should be removed so another solution might be to try the alternative Box-Cox transformation that Hyndman suggested in his blog post.^[[Transforming data with zeros](https://robjhyndman.com/hyndsight/transformations/)]
+The `caret` function `nearZeroVar` does not indicate that the variables with high frequencies of zeroes should be removed so another solution might be to try the alternative Box-Cox transformation that Hyndman suggested in his blog post.^[[Transforming data with zeros](https://robjhyndman.com/hyndsight/transformations/)]
+
+The data below has been transformed using the `log1p` function Hyndman referenced.
 
 ```{r fig.height=7}
 Alt_BoxCox_Glass <- log1p(Glass[,1:9])
@@ -247,9 +254,11 @@ Alt_BoxCox_Glass %>%
   theme(panel.background = element_blank(), legend.position="top")
 ```
 
-I think that in this case it mght be necessary to know if these are real zeroes, or '**censored**' data where the zeroes may actually be trace amounts that are below the detection limit.  In this case Kuhn and Johnson state:
+I think that in this case it might be necessary to know if these are real zeroes, or '**censored**' data where the zeroes may actually be trace amounts that are below the detection limit.  In this case Kuhn and Johnson state:
 
->when a sample has a value below the limit of detection, the actual limit can be used in place of the real value. For this situation, it is also common to use a random number between zero and the limit of detection.^[Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. New York: Springer.]
+>when a sample has a value below the limit of detection, the actual limit can be used in place of the real value. For this situation, it is also common to use a random number between zero and the limit of detection.^[[Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. New York: Springer.](https://vuquangnguyen2016.files.wordpress.com/2018/03/applied-predictive-modeling-max-kuhn-kjell-johnson_1518.pdf) page 41]
+
+Imputing a non-zero value might improve our transformation options by allowing us to use a regular Box-Cox transformation on all the predictors, but I am not convinced it will result in much more normalized distributions than the alternative Box-Cox transformation.  
 
 ## Exercise 3.2
 
@@ -265,8 +274,10 @@ data(Soybean)
 
 ```{r}
 data(Soybean)
-str(Soybean)
+# str(Soybean)
 ```
+
+#### Data Dictionary from Soybean {mlbench} Documentation
 
 ```
 [,1]	Class	the 19 classes
@@ -327,6 +338,18 @@ kable(summary(Soybeans[,29:36])) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
+In Applied Predictive Modeling by Kuhn & Johnson, they describe 'degenerate distributions' as those with zero or near zero variance.^[[Kuhn, M., & Johnson, K. (2013). Applied predictive modeling. New York: Springer.](https://vuquangnguyen2016.files.wordpress.com/2018/03/applied-predictive-modeling-max-kuhn-kjell-johnson_1518.pdf) pages 44-45]  The output of the `nearZeroVar` function shows that there are 3 variables, `r names(Soybean[,nearZeroVar(Soybean)])`, in the Soybean data set that are 'degenerate' in this way.
+
+```{r}
+near_zero_soy <- nearZeroVar(Soybean, names = TRUE, saveMetrics=TRUE) %>%
+  rownames_to_column('variable') %>%
+  filter(zeroVar == TRUE | nzv == TRUE)
+kable(near_zero_soy) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+We can see this near zero variance in the plots below as well as some interesting correlations between NA values and certain target classes which we will explore more in the next section.
+
 ```{r fig.height=15}
 par(mar=c(1,1,1,1))
 Soybean %>%
@@ -342,19 +365,24 @@ Soybean %>%
   xlab("") +
   ylab("") +
   theme(panel.background = element_blank(), legend.position="top")
-
 ```
 
 ### (b) Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
+
+We can see in the plot below that there are certain variables with much higher percentages of missing values than others.  `lodging`, `seed.tmt`, `sever`, and `hail` have the highest percentage of missing values at 17.72%.  However, more than half the predictors have more than 12% missing data.  
 
 ```{r}
 plot_missing(Soybean) 
 ```
 
+The plot below shows us some clear patterns in the missing data related to the target classes.  ALL of the missing data belongs to just 5 of the 19 classes with noticeably different patterns of missing data for each of those 5 classes.  
+
 ```{r fig.height=15}
 gg_miss_var(x = Soybean, facet = Class, show_pct = TRUE) + 
   labs(y = "Percent missing values")
 ```
+
+The plot below shows us that all of the missing data falls into one of 7 patterns.  Since we also know that all of the missing values fall into one of 5 classes, the missing data could have strong predictive value, however it is important to know why they are missing.  This is a judgement where domain knowledge can be invaluable in determining what to do about those missing values.
 
 ```{r fig.height=15}
 gg_miss_upset(Soybean, 
@@ -362,6 +390,7 @@ gg_miss_upset(Soybean,
               nintersects = NA)
 ```
 
+The table below shows us that for 4 out of the 5 classes with missing data, 100% of the records in each of those classes are missing data in all of the fields where they have missing data.  Only `phytophthora-rot` has some data for some records in the fields where they also have missing values.
 
 ```{r}
 missingness <- Soybean %>%
@@ -372,20 +401,34 @@ kable(missingness %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-
-```{r}
-library(tibble)  # for `rownames_to_column` 
-names(Soybean[,nearZeroVar(Soybean)])
-near_zero_soy <- nearZeroVar(Soybean, names = TRUE, saveMetrics=TRUE) %>%
-  rownames_to_column('variable') %>%
-  filter(zeroVar == TRUE | nzv == TRUE)
-kable(near_zero_soy) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-```
-
 ### (c) Develop a strategy for handling missing data, either by eliminating predictors or imputation.
+
+Because of the predictive value of the missingness in this data set, unless my domain knowledge told me of some reason not to, I would choose to create an additional factor level for each of those variables to indicate missingness.  
  
 ```{r}
+# https://gist.github.com/riinuots/e517c36b1feb480df981721a00e0e24a
+
+Soybean_Imputed <- Soybean %>%
+  mutate_if(is.factor, fct_explicit_na)
+```
+
+#### Distributions after imputing missing values as a factor level
+
+```{r fig.height=15}
+par(mar=c(1,1,1,1))
+Soybean_Imputed %>%
+  gather(-Class, key = "var", value = "val") %>%
+  ggplot(aes(x = val, fill=Class)) +
+  geom_bar(alpha=1) +
+  facet_wrap(~ var, scales = "free") +
+  scale_fill_manual("target",
+                    values = c('#f1b6da','#c51b7d','#b2df8a','#33a02c','#fb9a99',
+                               '#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a',
+                               '#ffeda0','#dfc27d','#80cdc1','#01665e','#a6cee3',
+                               '#1f78b4','#bf812d','#8c510a','#bababa')) +
+  xlab("") +
+  ylab("") +
+  theme(panel.background = element_blank(), legend.position="top")
 
 ```
 
