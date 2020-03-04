@@ -264,9 +264,47 @@ data(Soybean)
 ```
 
 ```{r}
-# library(mlbench)
 data(Soybean)
-## See ?Soybean for details
+str(Soybean)
+```
+
+```
+[,1]	Class	the 19 classes
+[,2]	date	apr(0),may(1),june(2),july(3),aug(4),sept(5),oct(6).
+[,3]	plant.stand	normal(0),lt-normal(1).
+[,4]	precip	lt-norm(0),norm(1),gt-norm(2).
+[,5]	temp	lt-norm(0),norm(1),gt-norm(2).
+[,6]	hail	yes(0),no(1).
+[,7]	crop.hist	dif-lst-yr(0),s-l-y(1),s-l-2-y(2), s-l-7-y(3).
+[,8]	area.dam	scatter(0),low-area(1),upper-ar(2),whole-field(3).
+[,9]	sever	minor(0),pot-severe(1),severe(2).
+[,10]	seed.tmt	none(0),fungicide(1),other(2).
+[,11]	germ	90-100%(0),80-89%(1),lt-80%(2).
+[,12]	plant.growth	norm(0),abnorm(1).
+[,13]	leaves	norm(0),abnorm(1).
+[,14]	leaf.halo	absent(0),yellow-halos(1),no-yellow-halos(2).
+[,15]	leaf.marg	w-s-marg(0),no-w-s-marg(1),dna(2).
+[,16]	leaf.size	lt-1/8(0),gt-1/8(1),dna(2).
+[,17]	leaf.shread	absent(0),present(1).
+[,18]	leaf.malf	absent(0),present(1).
+[,19]	leaf.mild	absent(0),upper-surf(1),lower-surf(2).
+[,20]	stem	norm(0),abnorm(1).
+[,21]	lodging	yes(0),no(1).
+[,22]	stem.cankers	absent(0),below-soil(1),above-s(2),ab-sec-nde(3).
+[,23]	canker.lesion	dna(0),brown(1),dk-brown-blk(2),tan(3).
+[,24]	fruiting.bodies	absent(0),present(1).
+[,25]	ext.decay	absent(0),firm-and-dry(1),watery(2).
+[,26]	mycelium	absent(0),present(1).
+[,27]	int.discolor	none(0),brown(1),black(2).
+[,28]	sclerotia	absent(0),present(1).
+[,29]	fruit.pods	norm(0),diseased(1),few-present(2),dna(3).
+[,30]	fruit.spots	absent(0),col(1),br-w/blk-speck(2),distort(3),dna(4).
+[,31]	seed	norm(0),abnorm(1).
+[,32]	mold.growth	absent(0),present(1).
+[,33]	seed.discolor	absent(0),present(1).
+[,34]	seed.size	norm(0),lt-norm(1).
+[,35]	shriveling	absent(0),present(1).
+[,36]	roots	norm(0),rotted(1),galls-cysts(2).
 ```
 
 ### (a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
@@ -318,6 +356,13 @@ gg_miss_var(x = Soybean, facet = Class, show_pct = TRUE) +
   labs(y = "Percent missing values")
 ```
 
+```{r fig.height=15}
+gg_miss_upset(Soybean, 
+              nsets = 36,
+              nintersects = NA)
+```
+
+
 ```{r}
 missingness <- Soybean %>%
   group_by(Class) %>%
@@ -329,8 +374,12 @@ kable(missingness %>%
 
 
 ```{r}
-nearZeroVar(Soybean)
-kable(nearZeroVar(Soybean, names = TRUE, saveMetrics=TRUE)) %>%
+library(tibble)  # for `rownames_to_column` 
+names(Soybean[,nearZeroVar(Soybean)])
+near_zero_soy <- nearZeroVar(Soybean, names = TRUE, saveMetrics=TRUE) %>%
+  rownames_to_column('variable') %>%
+  filter(zeroVar == TRUE | nzv == TRUE)
+kable(near_zero_soy) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
