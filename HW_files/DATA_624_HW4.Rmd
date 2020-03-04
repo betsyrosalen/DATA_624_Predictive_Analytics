@@ -32,6 +32,7 @@ library(caret)
 library(corrplot)
 library(e1071)
 library(lattice)
+library(naniar)
 ```
 
 ## Exercise 3.1
@@ -40,7 +41,13 @@ library(lattice)
 
 The data can be accessed via:
 
-```{r class.source = NULL}
+```
+library(mlbench)
+data(Glass)
+str(Glass)
+```
+
+```{r}
 library(mlbench)
 data(Glass)
 str(Glass)
@@ -219,17 +226,19 @@ Glass_log %>%
 Maybe a little better, but still not great!
 
 ```{r}
-nearZeroVar(Glass)
+kable(nearZeroVar(Glass, names = TRUE, saveMetrics=TRUE)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
 The `caret` function `nearZeroVar` does not indicate that the variabes with high frequenciees of zeroes should be removed so another solution might be to try the alternative Box-Cox transformation that Hyndman suggested in his blog post.^[[Transforming data with zeros](https://robjhyndman.com/hyndsight/transformations/)]
 
 ```{r fig.height=7}
 Alt_BoxCox_Glass <- log1p(Glass[,1:9])
-head(Alt_BoxCox_Glass)
+kable(head(Alt_BoxCox_Glass))  %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-```{r}
+```{r fig.height=7}
 Alt_BoxCox_Glass %>%
   gather() %>% 
   ggplot(aes(value)) +
@@ -248,42 +257,81 @@ The soybean data can also be found at the UC Irvine Machine Learning Repository.
 
 The data can be loaded via:
 
-```{r class.source = NULL}
+```
 # library(mlbench)
 data(Soybean)
 ## See ?Soybean for details
 ```
 
-#### (a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
+```{r}
+# library(mlbench)
+data(Soybean)
+## See ?Soybean for details
+```
+
+### (a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
 
 ```{r}
-# freq.dist <- apply(Soybean, 2, table)
-kable(summary(Soybean[,1:6])) %>%
+# reorder columns by number of levels in factors
+Soybeans <- Soybean[, c(1,2,7,8,22,23,29,30,4,5,9:11,14:16,19,25,27,36,
+                       3,6,12,13,17,18,20,21,24,26,28,31:35)]
+kable(summary(data.frame(Soybeans[,1:2]))) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-kable(summary(Soybean[,7:12])) %>%
+kable(summary(Soybeans[,3:8])) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-kable(summary(Soybean[,13:18])) %>%
+kable(summary(Soybeans[,9:14])) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-kable(summary(Soybean[,19:24])) %>%
+kable(summary(Soybeans[,15:20])) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-kable(summary(Soybean[,25:30])) %>%
+kable(summary(Soybeans[,21:28])) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-kable(summary(Soybean[,31:36])) %>%
+kable(summary(Soybeans[,29:36])) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
+```{r fig.height=15}
+par(mar=c(1.2,1.2,1.2,1.2))
+par(mfrow=c(9,4))
+for (i in 1:ncol(Soybeans)) {
+  # barplot(summary(Soybeans[,i]), main=names(Soybeans[i]))
+  Soybeans %>%
+  gather(-Class, key = "var", value = "val") %>%
+  ggplot(aes(x = val, fill=Class)) +
+  geom_histogram(bins=10, alpha=1) +
+  facet_wrap(~ var, scales = "free") +
+  scale_fill_manual("target",
+                    values = c('#d73027','#fc8d59','#fee090','#e0f3f8','#91bfdb','#4575b4')) +
+  xlab("") +
+  ylab("") +
+  theme(panel.background = element_blank(), legend.position="top")
+  }
+```
+
+### (b) Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
+
 ```{r}
-barplot(summary(Soybean$Class))
+plot_missing(Soybeans) 
+```
+
+```{r fig.height=15}
+gg_miss_var(x = Soybeans, facet = Class)
+```
+
+```{r}
+missingness <- Soybeans %>%
+  group_by(Class) %>%
+  miss_var_summary()
+missingness
 ```
 
 
-#### (b) Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
-
 ```{r}
-
+nearZeroVar(Soybeans)
+kable(nearZeroVar(Soybeans, names = TRUE, saveMetrics=TRUE)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-#### (c) Develop a strategy for handling missing data, either by eliminating predictors or imputation.
+### (c) Develop a strategy for handling missing data, either by eliminating predictors or imputation.
  
 ```{r}
 
