@@ -271,7 +271,7 @@ data(Soybean)
 
 ### (a) Investigate the frequency distributions for the categorical predictors. Are any of the distributions degenerate in the ways discussed earlier in this chapter?
 
-```{r}
+```{r eval=FALSE}
 # reorder columns by number of levels in factors
 Soybeans <- Soybean[, c(1,2,7,8,22,23,29,30,4,5,9:11,14:16,19,25,27,36,
                        3,6,12,13,17,18,20,21,24,26,28,31:35)]
@@ -290,44 +290,47 @@ kable(summary(Soybeans[,29:36])) %>%
 ```
 
 ```{r fig.height=15}
-par(mar=c(1.2,1.2,1.2,1.2))
-par(mfrow=c(9,4))
-for (i in 1:ncol(Soybeans)) {
-  # barplot(summary(Soybeans[,i]), main=names(Soybeans[i]))
-  Soybeans %>%
+par(mar=c(1,1,1,1))
+Soybean %>%
   gather(-Class, key = "var", value = "val") %>%
   ggplot(aes(x = val, fill=Class)) +
-  geom_histogram(bins=10, alpha=1) +
+  geom_bar(alpha=1) +
   facet_wrap(~ var, scales = "free") +
   scale_fill_manual("target",
-                    values = c('#d73027','#fc8d59','#fee090','#e0f3f8','#91bfdb','#4575b4')) +
+                    values = c('#f1b6da','#c51b7d','#b2df8a','#33a02c','#fb9a99',
+                               '#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a',
+                               '#ffeda0','#dfc27d','#80cdc1','#01665e','#a6cee3',
+                               '#1f78b4','#bf812d','#8c510a','#bababa')) +
   xlab("") +
   ylab("") +
   theme(panel.background = element_blank(), legend.position="top")
-  }
+
 ```
 
 ### (b) Roughly 18 % of the data are missing. Are there particular predictors that are more likely to be missing? Is the pattern of missing data related to the classes?
 
 ```{r}
-plot_missing(Soybeans) 
+plot_missing(Soybean) 
 ```
 
 ```{r fig.height=15}
-gg_miss_var(x = Soybeans, facet = Class)
+gg_miss_var(x = Soybean, facet = Class, show_pct = TRUE) + 
+  labs(y = "Percent missing values")
 ```
 
 ```{r}
-missingness <- Soybeans %>%
+missingness <- Soybean %>%
   group_by(Class) %>%
-  miss_var_summary()
-missingness
+  miss_var_summary() 
+kable(missingness %>% 
+  filter(pct_miss > 0)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
 
 ```{r}
-nearZeroVar(Soybeans)
-kable(nearZeroVar(Soybeans, names = TRUE, saveMetrics=TRUE)) %>%
+nearZeroVar(Soybean)
+kable(nearZeroVar(Soybean, names = TRUE, saveMetrics=TRUE)) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
