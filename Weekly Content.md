@@ -59,7 +59,7 @@ Do exercises 7.1, 7.5,7.6, 7.7, 7.8 and 7.9  in Hyndman.  Please submit both the
 
 Attached Files:
 
-[File HW5_Answers.html (1.659 MB)](https://bbhosted.cuny.edu/bbcswebdav/pid-44377406-dt-content-rid-366433896_1/courses/SPS01_DATA_624_01_1202_1/HW5_Answers.html) 
+[File HW5_Answers.html (1.659 MB)](https://github.com/betsyrosalen/DATA_624_Predictive_Analytics/tree/master/Files) 
 
 Here is the approach Hyndman took.
 
@@ -83,7 +83,7 @@ Do the exercises 8.1, 8.2, 8.3, 8.5., 8.6, 8.7 in Hyndman.  Please submit both t
 
 Attached Files:
 
-[File HW6_Answers.html (1.664 MB)](https://bbhosted.cuny.edu/bbcswebdav/pid-44377412-dt-content-rid-366436103_1/courses/SPS01_DATA_624_01_1202_1/HW6_Answers.html)
+[File HW6_Answers.html (1.664 MB)](https://github.com/betsyrosalen/DATA_624_Predictive_Analytics/tree/master/Files)
 
 ## Week 9 (Week of March 24)
 
@@ -129,21 +129,21 @@ The purpose of this section is to give you an overview of various recommender sy
 
 ### Market Basket Article 1
 
-https://bbhosted.cuny.edu/webapps/blackboard/execute/content/file?cmd=view&content_id=_44377426_1&course_id=_1838309_1
+https://github.com/betsyrosalen/DATA_624_Predictive_Analytics/blob/master/Files/Market_Basket_Analysis_1.pdf
 
 ### Market Basket Article 2
 
-https://bbhosted.cuny.edu/webapps/blackboard/execute/content/file?cmd=view&content_id=_44377427_1&course_id=_1838309_1
+https://github.com/betsyrosalen/DATA_624_Predictive_Analytics/blob/master/Files/Market_Basket_Analysis_2.pdf
 
 ### Cluster Analysis Theory
 
-https://bbhosted.cuny.edu/webapps/blackboard/execute/content/file?cmd=view&content_id=_44377428_1&course_id=_1838309_1
+https://github.com/betsyrosalen/DATA_624_Predictive_Analytics/blob/master/Files/Cluster_Analysis_Theory.pdf
 
 ### Homework 10 (optional)
 
 ### Attached Files:
 
-[File GroceryDataSet.csv (763.702 KB)](https://bbhosted.cuny.edu/bbcswebdav/pid-44377429-dt-content-rid-366436102_1/xid-366436102_1)
+[File GroceryDataSet.csv (763.702 KB)](https://raw.githubusercontent.com/betsyrosalen/DATA_624_Predictive_Analytics/master/Files/GroceryDataSet.csv)
 
 Imagine 10000 receipts sitting on your table. Each receipt represents a transaction with items that were purchased. The receipt is a representation of stuff that went into a customer’s basket - and therefore ‘Market Basket Analysis’.
 
