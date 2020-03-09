@@ -1,0 +1,334 @@
+---
+title: "DATA624 HW5"
+subtitle: "Exponential Smoothing"
+author: "Betsy Rosalen"
+date: "3/8/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 7
+      fig_height: 4
+      highlight: tango
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(fpp3)
+library(ggplot2)
+library(forecast)
+library(seasonal)
+library(kableExtra)
+library(gridExtra)
+```
+
+## Exercise 7.1
+
+Consider the `pigs` series — the number of pigs slaughtered in Victoria each month.
+
+### a. Use the `ses()` function in R to find the optimal values of $\alpha$ and $\ell_0$, and generate forecasts for the next four months.
+
+```{r}
+pigs <- fma::pigs
+tail(pigs)
+fcpigs <- ses(pigs, h=4)
+summary(fcpigs)
+```
+
+```{r}
+autoplot(fcpigs) +
+  autolayer(fcpigs$fitted, series="Fitted") +
+  ylab("Count") + xlab("Year")
+```
+
+### b. Compute a 95% prediction interval for the first forecast using $\hat{y} \pm 1.96s$ where $s$ is the standard deviation of the residuals. Compare your interval with the interval produced by R.
+
+```{r}
+s <- sd(fcpigs$residuals)
+fcpigs$mean[1] - 1.96 * s
+fcpigs$mean[1] + 1.96 * s
+```
+
+The manually calculated interval is a little narrower than the one calculated by R.
+
+## Exercise 7.5
+
+Data set `books` contains the daily sales of paperback and hardcover books at the same store. The task is to forecast the next four days’ sales for paperback and hardcover books.
+
+### a. Plot the series and discuss the main features of the data.
+
+```{r}
+books <- fma::books
+autoplot(books)
+autoplot(books, facets=TRUE)
+head(books)
+tail(books)
+gglagplot(books)
+ggAcf(books, lag.max = 14)
+```
+
+We only have 30 days worth of data, so it's hard to know if there might be any annual or monthly seasonality.  If there is any weekly seasonality it's difficult to see within that period.  There does seem to be a pattern in the ACF plots though with almost all of the lags being positive.  
+
+Let's convert the series to weekly seasonality and try plotting again and decomposition.
+
+```{r}
+paperback <- books[,"Paperback"] %>% ts(frequency = 7) 
+paperback %>% ggseasonplot(polar = TRUE)
+paperback %>% decompose(type="multiplicative") %>%
+  autoplot() + xlab("Week") +
+  ggtitle("Classical multiplicative decomposition of Paperback books time series")
+```
+
+```{r}
+hardcover <- books[,"Hardcover"] %>% ts(frequency = 7) 
+hardcover %>% ggseasonplot(polar = TRUE)
+hardcover %>% decompose(type="multiplicative") %>%
+  autoplot() + xlab("Week") +
+  ggtitle("Classical multiplicative decomposition of Hardcover books time series")
+```
+
+The decompositions make it look like there is weekly seasonality in both paperback and hardcover book sales, but looking at the polar seasonal plots it's hard to see that being true.  
+
+### b. Use the `ses()` function to forecast each series, and plot the forecasts.
+
+```{r}
+sesPaperback <- ses(paperback, h=4)
+summary(sesPaperback)
+```
+
+```{r}
+autoplot(sesPaperback, main = "Daily Paperback Book Sales") +
+  autolayer(sesPaperback$fitted, series="Fitted") +
+  ylab("Sales") + xlab("Day")
+```
+
+```{r}
+sesHardcover <- ses(hardcover, h=4)
+summary(sesHardcover)
+```
+
+```{r}
+autoplot(sesHardcover, main = "Daily Hardcover Book Sales") +
+  autolayer(sesHardcover$fitted, series="Fitted") +
+  ylab("Sales") + xlab("Day")
+```
+
+### c. Compute the RMSE values for the training data in each case.
+
+```{r}
+kable(round(accuracy(sesPaperback),2)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(round(accuracy(sesHardcover),2)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+ses_PB_RMSE <- round(accuracy(sesPaperback)[,"RMSE"],2)
+ses_HC_RMSE <- round(accuracy(sesHardcover)[,"RMSE"],2)
+```
+
+
+## Exercise 7.6
+
+We will continue with the daily sales of paperback and hardcover books in data set `books.`
+
+### a. Apply Holt’s linear method to the `paperback` and `hardback` series and compute four-day forecasts in each case.
+
+```{r}
+holtPaperback <- holt(paperback, h=4)
+summary(holtPaperback)
+
+holtHardcover <- holt(hardcover, h=4)
+summary(holtHardcover)
+```
+
+### b. Compare the RMSE measures of Holt’s method for the two series to those of simple exponential smoothing in the previous question. (Remember that Holt’s method is using one more parameter than SES.) Discuss the merits of the two forecasting methods for these data sets.
+
+```{r}
+kable(round(accuracy(holtPaperback),2)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+kable(round(accuracy(holtHardcover),2)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+holt_PB_RMSE <- round(accuracy(holtPaperback)[,"RMSE"],2)
+holt_HC_RMSE <- round(accuracy(holtHardcover)[,"RMSE"],2)
+```
+
+The RMSE for the paperback book sales data using simple exponential smoothing is `r ses_PB_RMSE` vs `r holt_PB_RMSE` when using Holt's method, which is a reduction of `r ses_PB_RMSE - holt_PB_RMSE`.  The RMSE for the hardcover book sales data using simple exponential smoothing is `r ses_HC_RMSE` vs `r holt_HC_RMSE` when using Holt's method, which is a reduction of `r ses_HC_RMSE - holt_HC_RMSE`.  Holt's method is a better predictor for the books time series since there does seem to be an upward trend in both paperback and hardcover book sales.
+
+### c. Compare the forecasts for the two series using both methods. Which do you think is best?
+
+```{r}
+p1 <- autoplot(sesPaperback, main = "Daily Paperback Book Sales - SES") +
+  autolayer(sesPaperback$fitted, series="Fitted") +
+  ylab("Sales") + xlab("Day")
+
+p2 <- autoplot(sesHardcover, main = "Daily Hardcover Book Sales - SES") +
+  autolayer(sesHardcover$fitted, series="Fitted") +
+  ylab("Sales") + xlab("Day")
+
+p3 <- autoplot(holtPaperback, main = "Daily Paperback Book Sales - Holt") +
+  autolayer(holtPaperback$fitted, series="Fitted") +
+  ylab("Sales") + xlab("Day")
+
+p4 <- autoplot(holtHardcover, main = "Daily Hardcover Book Sales - Holt") +
+  autolayer(holtHardcover$fitted, series="Fitted") +
+  ylab("Sales") + xlab("Day")
+
+grid.arrange(p1, p2, p3, p4, nrow = 2)
+```
+
+Since both methods result in a straight line forecast and do not take seasonality into account, the Holt method that includes the trend upward is a better forecaster than simple exponential smoothing.
+
+### d. Calculate a 95% prediction interval for the first forecast for each series, using the RMSE values and assuming normal errors. Compare your intervals with those produced using `ses` and `holt`.
+
+#### Manually Calculated Confidence Intervals
+
+```{r}
+conf_int <- function(fc, n){
+  sd <- accuracy(fc)[,"RMSE"]
+  c(fc$mean[n] - 1.96 * sd, fc$mean[n] + 1.96 * sd)
+  }
+
+ses_pb_conf_int <- conf_int(sesPaperback, 1)
+ses_hc_conf_int <- conf_int(sesHardcover, 1)
+holt_pb_conf_int <- conf_int(holtPaperback, 1)
+holt_hc_conf_int <- conf_int(holtHardcover, 1)
+
+manual_calc <- data.frame(ses_pb_conf_int, ses_hc_conf_int, holt_pb_conf_int, holt_hc_conf_int, row.names = c("lower", "upper"))
+kable(manual_calc) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+#### R-Calculated Confidence Intervals
+
+```{r}
+conf_int <- function(fc, n){
+  c(fc$lower[,"95%"][1], fc$upper[,"95%"][1])
+  }
+
+ses_pb_conf_int_r <- conf_int(sesPaperback, 1)
+ses_hc_conf_int_r <- conf_int(sesHardcover, 1)
+holt_pb_conf_int_r <- conf_int(holtPaperback, 1)
+holt_hc_conf_int_r <- conf_int(holtHardcover, 1)
+
+r_calc <- data.frame(ses_pb_conf_int_r, ses_hc_conf_int_r, holt_pb_conf_int_r, holt_hc_conf_int_r, row.names = c("lower", "upper"))
+kable(r_calc) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+#### Differences 
+
+```{r}
+r_calc - manual_calc
+```
+
+Once again the confidence intervals that were manually calculated are just a little narrower than the ones calculates by the `ses` and `holt` functions in R.
+
+## Exercise 7.7
+
+For this exercise use data set `eggs`, the price of a dozen eggs in the United States from 1900–1993. Experiment with the various options in the `holt()` function to see how much the forecasts change with damped trend, or with a Box-Cox transformation. Try to develop an intuition of what each argument is doing to the forecasts.
+
+[Hint: use `h=100` when calling `holt()` so you can clearly see the differences between the various options when plotting the forecasts.]
+
+Which model gives the best RMSE?
+
+```{r}
+eggs <- fma::eggs
+fc1eggs <- holt(eggs, h=100)
+fc1eggs$model
+kable(accuracy(fc1eggs)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc1eggs)
+```
+
+```{r}
+eggs <- fma::eggs
+fc2eggs <- holt(eggs, damped=TRUE, phi=0.9, h=100)
+fc2eggs$model
+kable(accuracy(fc2eggs)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc2eggs)
+```
+
+```{r}
+eggs <- fma::eggs
+fc3eggs <- holt(eggs, lambda="auto", h=100)
+fc3eggs$model
+kable(accuracy(fc3eggs)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc3eggs)
+```
+
+```{r}
+eggs <- fma::eggs
+fc4eggs <- holt(eggs, damped=TRUE, phi=0.9, lambda="auto", h=100)
+fc4eggs$model
+kable(accuracy(fc4eggs)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc4eggs)
+```
+
+```{r}
+fc1_RMSE <- accuracy(fc1eggs)[,"RMSE"]
+fc2_RMSE <- accuracy(fc2eggs)[,"RMSE"]
+fc3_RMSE <- accuracy(fc3eggs)[,"RMSE"]
+fc4_RMSE <- accuracy(fc4eggs)[,"RMSE"]
+
+c(fc1_RMSE, fc2_RMSE, fc3_RMSE, fc4_RMSE)
+```
+
+The Holt model with box-cox transformation and no dampening seems to produce the best forecasts and also has the best (lowest) RMSE.  The first model without any dampening or box-cox transformation drops the price into the negative which is impossible.  The dampened but untransformed data levels out at it's current price and stays there forever.  The box-cox transformed data slopes down at first but slowly curves upwards so that it levels out at about 0.  It also has the narrowest confidence intervals.  The box-cox transformed and dampened forecast has confidence intervals that almost never go into the negatives, so in that way it may be the best model, but the price forecast levels out at the current price without change and the upper confidence limit is extremely wide.
+
+## Exercise 7.8
+
+Recall your retail time series data (from Exercise 3 in Section 2.10).
+
+### a. Why is multiplicative seasonality necessary for this series?
+
+```{r}
+
+```
+
+
+### b. Apply Holt-Winters’ multiplicative method to the data. Experiment with making the trend damped.
+
+```{r}
+
+```
+
+
+### c. Compare the RMSE of the one-step forecasts from the two methods. Which do you prefer?
+
+```{r}
+
+```
+
+
+### d. Check that the residuals from the best method look like white noise.
+
+```{r}
+
+```
+
+
+### e. Now find the test set RMSE, while training the model to the end of 2010. Can you beat the seasonal naïve approach from Exercise 8 in Section 3.7?
+
+```{r}
+
+```
+
+
+## Exercise 7.9
+
+For the same retail data, try an STL decomposition applied to the Box-Cox transformed series, followed by ETS on the seasonally adjusted data. How does that compare with your best previous forecasts on the test set?
+
+```{r}
+
+```
+
+
+## Footnotes
