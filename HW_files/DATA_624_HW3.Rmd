@@ -124,7 +124,7 @@ retail <- ts(retaildata[,"A3349335T"],
 
 fit4 <- retail %>% seas(x11="")
 autoplot(fit4) +
-  ggtitle("X11 decomposition of retail time series with Box-Cox Transformation")
+  ggtitle("X11 decomposition of retail time series")
 ```
 
 ```{r}

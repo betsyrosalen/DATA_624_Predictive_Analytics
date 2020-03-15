@@ -70,7 +70,13 @@ autoplot(books)
 autoplot(books, facets=TRUE)
 head(books)
 tail(books)
+```
+
+```{r fig.width=10, fig.height=10}
 gglagplot(books)
+```
+
+```{r}
 ggAcf(books, lag.max = 14)
 ```
 
@@ -161,7 +167,7 @@ The RMSE for the paperback book sales data using simple exponential smoothing is
 
 ### c. Compare the forecasts for the two series using both methods. Which do you think is best?
 
-```{r}
+```{r fig.height=10, fig.width=12}
 p1 <- autoplot(sesPaperback, main = "Daily Paperback Book Sales - SES") +
   autolayer(sesPaperback$fitted, series="Fitted") +
   ylab("Sales") + xlab("Day")
@@ -223,10 +229,11 @@ kable(r_calc) %>%
 #### Differences 
 
 ```{r}
-r_calc - manual_calc
+kable(data.frame(r_calc - manual_calc)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
-Once again the confidence intervals that were manually calculated are just a little narrower than the ones calculates by the `ses` and `holt` functions in R.
+Once again the confidence intervals that were manually calculated are just a little narrower than the ones calculated by the `ses` and `holt` functions in R.
 
 ## Exercise 7.7
 
@@ -246,7 +253,6 @@ autoplot(fc1eggs)
 ```
 
 ```{r}
-eggs <- fma::eggs
 fc2eggs <- holt(eggs, damped=TRUE, phi=0.9, h=100)
 fc2eggs$model
 kable(accuracy(fc2eggs)) %>%
@@ -255,21 +261,21 @@ autoplot(fc2eggs)
 ```
 
 ```{r}
-eggs <- fma::eggs
 fc3eggs <- holt(eggs, lambda="auto", h=100)
 fc3eggs$model
 kable(accuracy(fc3eggs)) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-autoplot(fc3eggs)
+autoplot(fc3eggs) +
+  ggtitle("Forecasts from Holt's Method with Box-Cox transformation")
 ```
 
 ```{r}
-eggs <- fma::eggs
 fc4eggs <- holt(eggs, damped=TRUE, phi=0.9, lambda="auto", h=100)
 fc4eggs$model
 kable(accuracy(fc4eggs)) %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
-autoplot(fc4eggs)
+autoplot(fc4eggs) +
+  ggtitle("Forecasts from Damped Holt's Method with Box-Cox transformation")
 ```
 
 ```{r}
@@ -278,7 +284,8 @@ fc2_RMSE <- accuracy(fc2eggs)[,"RMSE"]
 fc3_RMSE <- accuracy(fc3eggs)[,"RMSE"]
 fc4_RMSE <- accuracy(fc4eggs)[,"RMSE"]
 
-c(fc1_RMSE, fc2_RMSE, fc3_RMSE, fc4_RMSE)
+kable(data.frame(fc1_RMSE, fc2_RMSE, fc3_RMSE, fc4_RMSE)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
 The Holt model with box-cox transformation and no dampening seems to produce the best forecasts and also has the best (lowest) RMSE.  The first model without any dampening or box-cox transformation drops the price into the negative which is impossible.  The dampened but untransformed data levels out at it's current price and stays there forever.  The box-cox transformed data slopes down at first but slowly curves upwards so that it levels out at about 0.  It also has the narrowest confidence intervals.  The box-cox transformed and dampened forecast has confidence intervals that almost never go into the negatives, so in that way it may be the best model, but the price forecast levels out at the current price without change and the upper confidence limit is extremely wide.
@@ -290,45 +297,176 @@ Recall your retail time series data (from Exercise 3 in Section 2.10).
 ### a. Why is multiplicative seasonality necessary for this series?
 
 ```{r}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
 
+retail <- ts(retaildata[,"A3349335T"],
+  frequency=12, start=c(1982,4))
+
+autoplot(retail)
 ```
 
+Multiplicative seasonality is needed because you can see in the plot above that the seasonal variation increases with the level of the trend.  As the trend increases, so does the seasonal variation.  
 
 ### b. Apply Holt-Winters’ multiplicative method to the data. Experiment with making the trend damped.
 
 ```{r}
-
+fc1retail <- hw(retail, seasonal="multiplicative", h=100)
+fc1retail$model
+kable(accuracy(fc1retail)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc1retail)
 ```
 
+```{r}
+fc2retail <- hw(retail, damped=TRUE, phi=0.98, 
+                seasonal="multiplicative", h=100)
+fc2retail$model
+kable(accuracy(fc2retail)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc2retail)
+```
+
+The RMSE is slightly lower for the first undamped Holt Winter's model.  The plot also seems like a more reasonable forecast.  There is no reason to think that the sales will level off the way they do in the damped model.  
 
 ### c. Compare the RMSE of the one-step forecasts from the two methods. Which do you prefer?
 
 ```{r}
+fc1_retail_RMSE <- accuracy(fc1retail)[,"RMSE"]
+fc2_retail_RMSE <- accuracy(fc2retail)[,"RMSE"]
 
+kable(data.frame(fc1_retail_RMSE, fc2_retail_RMSE)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 ```
 
+The RMSE is very slightly lower for the first model and the plot looks like a more reasonable forecast, so I prefer the first undamped model.
 
 ### d. Check that the residuals from the best method look like white noise.
 
 ```{r}
-
+autoplot(fc1retail$residuals)
+checkresiduals(fc1retail)
 ```
 
+The residuals from the best Holt Winter's Model do look like white noise for the most part although there does seem to be a reduction of the variance over time, so there is some pattern to the residuals that might be a problem.  
+
+Just out of curiosity let's see what a Box-Cox transformation and additive seasonality does to our model.
+
+```{r}
+fc3retail <- hw(retail, lambda="auto", 
+                seasonal="additive", h=100)
+fc3retail$model
+kable(accuracy(fc3retail)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc3retail)
+```
+
+```{r}
+fc4retail <- hw(retail, damped=TRUE, phi=0.98, lambda="auto", 
+                seasonal="additive", h=100)
+fc4retail$model
+kable(accuracy(fc4retail)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+autoplot(fc4retail)
+```
+
+```{r}
+fc3_retail_RMSE <- accuracy(fc3retail)[,"RMSE"]
+fc4_retail_RMSE <- accuracy(fc4retail)[,"RMSE"]
+
+kable(data.frame(fc3_retail_RMSE, fc4_retail_RMSE)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+autoplot(fc3retail$residuals)
+checkresiduals(fc3retail)
+```
+
+The plots look better but the RMSE is slightly higher for both models than either of the first two.  Also the residual plot looks more like white noise with no discernible pattern or decrease in variability over time.  So even though the RMSE is slightly higher, I think I would choose the undamped Holt Winter's model with additive seasonality and Box-Cox transformation.  
 
 ### e. Now find the test set RMSE, while training the model to the end of 2010. Can you beat the seasonal naïve approach from Exercise 8 in Section 3.7?
 
 ```{r}
+train <- window(retail, end=c(2010,12))
+test <- window(retail, start=2011)
 
+fc <- hw(train, seasonal="multiplicative", h=100)
+
+kable(data.frame(accuracy(fc,test))) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+autoplot(train) +
+  autolayer(fc)
 ```
 
+The RMSE for a Holt Winter's multiplicative seasonality model is much better at 77.04807 then it was for the Naive approach taken in exercise 3.8 which had an RMSE of 109.62545.
 
 ## Exercise 7.9
 
 For the same retail data, try an STL decomposition applied to the Box-Cox transformed series, followed by ETS on the seasonally adjusted data. How does that compare with your best previous forecasts on the test set?
 
 ```{r}
+lambda <- BoxCox.lambda(retail)
+boxcox_STL_data <- retail %>%
+  BoxCox(lambda = lambda) %>%
+  mstl() 
+autoplot(boxcox_STL_data)
+```
 
+```{r}
+boxcox_STL_adj_data <- seasadj(boxcox_STL_data)
+
+autoplot(retail) +
+  autolayer(inv_box_cox(boxcox_STL_adj_data, lambda = lambda),
+            series="seasonally adjusted data") +
+  ggtitle("Backtransformed seasonally adjusted data")
+
+train <- window(boxcox_STL_adj_data, end=c(2010,12))
+test <- window(boxcox_STL_adj_data, start=2011)
+
+fit <- ets(train)
+fit
+
+fc <- forecast(fit, h=100)
+
+autoplot(fc, lambda = lambda) +
+  autolayer(boxcox_STL_adj_data,
+            series="seasonally adjusted data")
+
+autoplot(inv_box_cox(fc$mean, lambda = lambda)) +
+  autolayer(inv_box_cox(boxcox_STL_adj_data, lambda = lambda),
+            series="seasonally adjusted data") +
+  ggtitle("Backtransformed seasonally adjusted data and point forecast from ETS(A,A,N)")
+```
+
+```{r}
+kable(data.frame(accuracy(fc,test))) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+checkresiduals(fc)
+InvBoxCox(accuracy(fc,test)[,"RMSE"], lambda=lambda)
+```
+
+```{r}
+fit <- ets(boxcox_STL_adj_data)
+fit
+
+fc <- forecast(fit, h=100)
+
+autoplot(fc, lambda = lambda) +
+  autolayer(boxcox_STL_adj_data,
+            series="seasonally adjusted data")
+
+autoplot(inv_box_cox(fc$mean, lambda = lambda)) +
+  autolayer(inv_box_cox(boxcox_STL_adj_data, lambda = lambda),
+            series="seasonally adjusted data") +
+  ggtitle("Backtransformed seasonally adjusted data and point forecast from ETS(A,A,N)")
+```
+
+```{r}
+checkresiduals(fc)
+InvBoxCox(accuracy(fc)[,"RMSE"], lambda=lambda)
 ```
 
 
-## Footnotes
+Whether we use the entire data set for training or only the data up to the end of 2010, either way the `ets` function seems to result in an overly optimistic forecast for the retail data.  We can see a leveling off that starts in about 2010, but the `ets` function forecasts that retail sales will continue to rise in an exponential growth pattern.  It's hard to compare the RMSE because I'm not sure I backtransformed it correctly, but if so the RMSE does seem to be significantly smaller at 1.28 for this model than for any of the other previous models that all had RMSE's above 25.  
