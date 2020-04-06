@@ -1,0 +1,333 @@
+---
+title: "DATA624 HW6"
+subtitle: "ARIMA Models"
+author: "Betsy Rosalen"
+date: "4/5/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 7
+      fig_height: 4
+      highlight: tango
+      toc: yes
+      toc_depth: 2
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(fpp3)
+library(ggplot2)
+library(forecast)
+library(seasonal)
+library(kableExtra)
+library(gridExtra)
+library(urca)
+```
+
+## Exercise 8.1
+
+Figure 8.31 shows the ACFs for 36 random numbers, 360 random numbers and 1,000 random numbers.
+
+![Left: ACF for a white noise series of 36 numbers. Middle: ACF for a white noise series of 360 numbers. Right: ACF for a white noise series of 1,000 numbers.](/Users/betsyrosalen/GitHub/DATA_624_Predictive_Analytics/HW_files/wnacfplus-1.png)
+
+#### a. Explain the differences among these figures. Do they all indicate that the data are white noise?
+
+It seems that the larger or longer the time series the closer the critical values for autocorrelation get to zero since the range of values that show no significant difference from 0 (between the blue lines) gets successively narrower as the number of data points increases in each plot.  
+
+All of the plots look like white noise since almost none of the plots extend beyond the critical values and there is no discernible pattern in the plots.
+
+#### b. Why are the critical values at different distances from the mean of zero? Why are the autocorrelations different in each figure when they each refer to white noise?
+
+From Hyndman:
+
+> For a white noise series, we expect 95% of the spikes in the ACF to lie within $\pm 2/\sqrt{T}$ where $T$ is the length of the time series.^[Hyndman, R.J., & Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. OTexts.com/fpp2. Accessed on February 23, 2020.]
+
+Since the critical values are dependent on $T$ the longer the time series, the smaller the absolute value of the critical values will be.
+
+## Exercise 8.2
+
+A classic example of a non-stationary series is the daily closing IBM stock price series (data set `ibmclose`). Use R to plot the daily closing prices for IBM stock and the ACF and PACF. Explain how each plot shows that the series is non-stationary and should be differenced.
+
+### Time Plot
+
+```{r}
+ibmclose <- fma::ibmclose
+ggtsdisplay(ibmclose)
+```
+
+A downward trend is clearly evident in the time plot which would rule out stationarity.
+
+The ACF plot shows that all lags are well outside the range between the critical values that would indicate that the series is not white noise and so not stationary.
+
+Because the first lag of a PACF plot is the same as the first lag in the ACF plot, the PACF plot also shows a significant spike at lag 1 that indicates that the series is not stationary.
+
+
+## Exercise 8.3
+
+For the following series, find an appropriate Box-Cox transformation and order of differencing in order to obtain stationary data.
+
+- `usnetelec`
+- `usgdp`
+- `mcopper`
+- `enplanements`
+- `visitors`
+
+In homework 2 we examined box-cox transformations for the first four of these series and discovered that "The enplanements series is the only one of the four that shows a clear seasonality that increases with the increase in the level of the series, so it is the only one of the four series for which a Box-Cox transformation is warranted and useful.^[https://rpubs.com/betsyrosalen/DATA624_HW2]  So we will only use a box-cox transformation on the `enplanements` time series and possibly the `visitors` time series if it seems warranted after examining plots to look for increasing seasonality.
+
+### `usnetelec`
+
+Description: Annual US net electricity generation (billion kwh) for 1949-2003
+
+```{r usnetelec}
+usnetelec <- expsmooth::usnetelec
+ggtsdisplay(usnetelec)
+```
+
+```{r}
+ndiffs(usnetelec)
+# after Differencing once
+ggtsdisplay(diff(usnetelec))
+```
+
+We still see a lot of variation after differencing only once and there is one negative spike that extends below the critical value at lag 14 so let's see if a second difference is better.
+
+```{r}
+# after Differencing twice
+usnetelec %>% diff() %>% diff() %>% ggtsdisplay()
+```
+
+Not surprisingly, since the `ndiffs` function suggested only first-order differencing, that made things even worse, so let's see if a log transformation or box-cox transformation helps in this case even though a box-cox transformation did not seem warranted.
+
+```{r}
+usnetelec %>% log() %>% ndiffs(usnetelec)
+# after log transformation and Differencing twice
+usnetelec %>% log() %>% diff() %>% diff() %>% ggtsdisplay()
+```
+
+The `ndiffs` function suggested second-order differencing after a log transformation, but that made things worse again, so let's try the Box-Cox transformation...
+
+```{r}
+usnetelec %>% BoxCox(lambda = "auto") %>% ndiffs(usnetelec)
+# after Box-Cox transformation and Differencing once
+usnetelec %>% BoxCox(lambda = "auto") %>% diff() %>% ggtsdisplay()
+```
+
+Interesting!  Even though a Box-Cox transformation did not seem warranted in this case based on plots, after trial and error the best solution for making the `usnetelec` time series stationary seems to be a Box-Cox transformation with first-order differencing even though the 'ndiffs` function suggested second-order differencing with Box-Cox!  However it's only marginally better than simple first-order differencing, so for simplicity's sake we may choose to go with the original first-order differencing only instead.
+
+### `usgdp`
+
+Description: Quarterly US GDP. 1947:1 - 2006.1.
+
+```{r usgdp}
+usgdp <- expsmooth::usgdp
+ggtsdisplay(usgdp)
+```
+
+```{r}
+usgdp %>% ndiffs()
+# after Differencing twice
+usgdp %>% diff() %>% diff() %>% ggtsdisplay()
+```
+
+After my experience with the `usnetelec` series, I decided to try log transformation and Box-Cox too just in case, but second-order differencing alone resulted in the best outcome.
+
+### `mcopper`
+
+Description: Monthly copper prices. Copper, grade A, electrolytic wire bars/cathodes,LME,cash (pounds/ton) 
+
+Source: UNCTAD <http://stats.unctad.org/Handbook>.
+
+```{r mcopper}
+mcopper <- expsmooth::mcopper
+ggtsdisplay(mcopper)
+```
+
+```{r}
+mcopper %>% ndiffs()
+# after Differencing once
+mcopper %>% diff() %>% ggtsdisplay()
+```
+
+Once again I tried log transformation and Box-Cox too just in case but again first-order differencing alone resulted in the best outcome.
+
+### `enplanements`
+
+Description: "Domestic Revenue Enplanements (millions): 1996-2000. 
+
+Source: Department of Transportation, Bureau of Transportation Statistics, Air Carrier Traffic Statistic Monthly.
+
+```{r enplanements}
+enplanements <- expsmooth::enplanements
+ggtsdisplay(enplanements)
+```
+
+Here we can see a Box-Cox transformation is definitely warranted because we can see seasonal variability that increases with the increase in level.
+
+```{r}
+enplanements %>% BoxCox(lambda = "auto") %>% nsdiffs()
+enplanements %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% ndiffs()
+```
+
+The `nsdiffs` function recommended seasonal differencing after the Box-Cox transformation, and the `ndiffs` function recommends further first-order differencing which results in the following series...
+
+```{r}
+# after Box-Cox transformation and Differencing once
+enplanements %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% diff() %>% ggtsdisplay()
+```
+
+```{r}
+cbind("enplanements" = enplanements,
+      "BoxCox\nTransformed" = BoxCox(enplanements, lambda = "auto"),
+      "Seasonally\ndifferenced" =
+        diff(BoxCox(enplanements, lambda = "auto"),12),
+      "Doubly\n differenced" =
+        diff(diff(BoxCox(enplanements, lambda = "auto"),12),1)) %>%
+  autoplot(facets=TRUE) +
+    xlab("Year") + ylab("") +
+    ggtitle("Domestic Revenue Enplanements (millions)")
+```
+
+#### `visitors`
+
+Description: Monthly Australian short-term overseas visitors. May 1985-April 2005
+
+Source: Hyndman, R.J., Koehler, A.B., Ord, J.K., and Snyder, R.D., (2008) Forecasting with exponential smoothing: the state space approach, Springer.
+
+```{r}
+visitors <- expsmooth::visitors
+ggtsdisplay(visitors)
+```
+
+Again a Box-Cox transformation definitely seems to be warranted in this case due to seasonal variability that increases with the level of the series.
+
+```{r}
+visitors %>% BoxCox(lambda = "auto") %>% nsdiffs()
+visitors %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% ndiffs()
+```
+
+Once again, the `nsdiffs` function recommended seasonal differencing after the Box-Cox transformation, and the `ndiffs` function recommends further first-order differencing which results in the following series...
+
+```{r}
+# after Box-Cox transformation and Seasonal Differencing
+visitors %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% diff() %>% ggtsdisplay()
+```
+
+```{r}
+cbind("visitors" = visitors,
+      "BoxCox\nTransformed" = BoxCox(visitors, lambda = "auto"),
+      "Seasonally\ndifferenced" =
+        diff(BoxCox(visitors, lambda = "auto"),12),
+      "Doubly\n differenced" =
+        diff(diff(BoxCox(visitors, lambda = "auto"),12),1)) %>%
+  autoplot(facets=TRUE) +
+    xlab("Year") + ylab("") +
+    ggtitle("Monthly Australian short-term overseas visitors")
+```
+
+
+## Exercise 8.5
+
+For your retail data (from Exercise 3 in Section 2.10), find the appropriate order of differencing (after transformation if necessary) to obtain stationary data.
+
+
+```{r}
+retaildata <- readxl::read_excel("retail.xlsx", skip=1)
+
+retail <- ts(retaildata[,"A3349335T"],
+  frequency=12, start=c(1982,4))
+
+autoplot(retail)
+```
+
+A Box-Cox transformation definitely seems to be warranted due to seasonal variability that increases with the level of the series.
+
+```{r}
+retail %>% BoxCox(lambda = "auto") %>% nsdiffs()
+retail %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% ndiffs()
+```
+
+Same as the last two time series in Exercise 8.3, the `nsdiffs` function recommended seasonal differencing after the Box-Cox transformation, and the `ndiffs` function recommends further first-order differencing which results in the following series...
+
+```{r}
+# after Box-Cox transformation and Seasonal Differencing
+retail %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% diff() %>% ggtsdisplay()
+```
+
+There's still a lot of autocorrelation in the ACF plot, but after trying a second-order seasonal dfference and second-order dfference after the seasonal differencing the plot above is still best.
+
+```{r}
+cbind("Retail Sales" = retail,
+      "BoxCox\nTransformed" = BoxCox(retail, lambda = "auto"),
+      "Seasonally\ndifferenced" =
+        diff(BoxCox(retail, lambda = "auto"),12),
+      "Doubly\n differenced" =
+        diff(diff(BoxCox(retail, lambda = "auto"),12),1)) %>%
+  autoplot(facets=TRUE) +
+    xlab("Year") + ylab("") +
+    ggtitle("Retail Sales")
+```
+
+## Exercise 8.6
+
+Use R to simulate and plot some data from simple ARIMA models.
+
+a. Use the following R code to generate data from an AR(1) model with $\phi_1 = 0.6$ and $\sigma^2 = 1$.  The process starts with $y_1 = 0$.
+
+```{r}
+y <- ts(numeric(100))
+e <- rnorm(100)
+for(i in 2:100)
+  y[i] <- 0.6*y[i-1] + e[i]
+```
+
+b. Produce a time plot for the series. How does the plot change as you change $\phi_1$?
+
+```{r}
+
+```
+
+
+c. Write your own code to generate data from an MA(1) model with $\theta_1 = 0.6$ and $\sigma^2 = 1$.
+
+d. Produce a time plot for the series. How does the plot change as you change $\theta_1$?
+
+e. Generate data from an ARMA(1,1) model with $\phi_1 = 0.6$, $\theta_1 = 0.6$ and $\sigma^2 = 1$.
+
+f. Generate data from an AR(2) model with $\phi_1 = -0.8$, $\phi_2 = 0.3$ and $\sigma^2 = 1$. (Note that these parameters will give a non-stationary series.)
+
+g. Graph the latter two series and compare them.
+
+```{r}
+
+```
+
+
+## Exercise 8.7
+
+Consider `wmurders`, the number of women murdered each year (per 100,000 standard population) in the United States.
+
+a. By studying appropriate graphs of the series in R, find an appropriate $\text{ARIMA}(p,d,q)$ model for these data.
+
+b. Should you include a constant in the model? Explain.
+
+c. Write this model in terms of the backshift operator.
+
+d. Fit the model using R and examine the residuals. Is the model satisfactory?
+
+e. Forecast three times ahead. Check your forecasts by hand to make sure that you know how they have been calculated.
+
+f. Create a plot of the series with forecasts and prediction intervals for the next three periods shown.
+
+g. Does `auto.arima()` give the same model you have chosen? If not, which model do you think is better?
+
+```{r}
+
+```
+
+## Footnotes
