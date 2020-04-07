@@ -280,31 +280,97 @@ Use R to simulate and plot some data from simple ARIMA models.
 a. Use the following R code to generate data from an AR(1) model with $\phi_1 = 0.6$ and $\sigma^2 = 1$.  The process starts with $y_1 = 0$.
 
 ```{r}
+set.seed(123)
 y <- ts(numeric(100))
 e <- rnorm(100)
-for(i in 2:100)
-  y[i] <- 0.6*y[i-1] + e[i]
+# for(i in 2:100)
+#   y[i] <- 0.6*y[i-1] + e[i]
 ```
 
 b. Produce a time plot for the series. How does the plot change as you change $\phi_1$?
 
 ```{r}
+AR1 <- function(phi, y, e){
+  for(i in 2:100)
+    y[i] <- phi*y[i-1] + e[i]
+  return(y)
+}
 
+phi_0.6 <- AR1(0.6, y, e)
+autoplot(phi_0.6)
 ```
 
+```{r}
+# par(mfrow=c(3,2))
+phi_0.01 <- AR1(0.01, y, e) %>% autoplot() + ggtitle('phi_0.01')
+phi_0.05 <- AR1(0.05, y, e) %>% autoplot() + ggtitle('phi_0.05')
+phi_0.1 <- AR1(0.1, y, e) %>% autoplot() + ggtitle('phi_0.1')
+phi_0.5 <- AR1(0.5, y, e) %>% autoplot() + ggtitle('phi_0.5')
+phi_0.9 <- AR1(0.9, y, e) %>% autoplot() + ggtitle('phi_0.9')
+phi_1.0 <- AR1(1.0, y, e) %>% autoplot() + ggtitle('phi_1.0')
+
+grid.arrange(phi_0.01, phi_0.05, phi_0.1, phi_0.5, phi_0.9, phi_1.0,
+             nrow = 3)
+```
 
 c. Write your own code to generate data from an MA(1) model with $\theta_1 = 0.6$ and $\sigma^2 = 1$.
 
+```{r}
+MA1 <- function(theta, y, e){
+  for(i in 2:100)
+    y[i] <- e[i] + theta*e[i-1]
+  return(y)
+}
+```
+
 d. Produce a time plot for the series. How does the plot change as you change $\theta_1$?
+
+```{r}
+theta_0.6 <- MA1(0.6, y, e)
+autoplot(theta_0.6)
+```
+
+```{r}
+# par(mfrow=c(3,2))
+theta_0.01 <- AR1(0.01, y, e) %>% autoplot() + ggtitle('theta_0.01')
+theta_0.05 <- AR1(0.05, y, e) %>% autoplot() + ggtitle('theta_0.05')
+theta_0.1 <- AR1(0.1, y, e) %>% autoplot() + ggtitle('theta_0.1')
+theta_0.5 <- AR1(0.5, y, e) %>% autoplot() + ggtitle('theta_0.5')
+theta_0.9 <- AR1(0.9, y, e) %>% autoplot() + ggtitle('theta_0.9')
+theta_1.0 <- AR1(1.0, y, e) %>% autoplot() + ggtitle('theta_1.0')
+
+grid.arrange(theta_0.01, theta_0.05, theta_0.1, 
+             theta_0.5, theta_0.9, theta_1.0,
+             nrow = 3)
+```
 
 e. Generate data from an ARMA(1,1) model with $\phi_1 = 0.6$, $\theta_1 = 0.6$ and $\sigma^2 = 1$.
 
+```{r}
+ARIMA11 <- function(phi, theta, y, e){
+  for(i in 2:100)
+    y[i] <- phi*y[i-1] + e[i] + theta*e[i-1]
+  return(y)
+}
+phi_0.6_theta_0.6 <- ARIMA11(0.6, 0.6, y, e)
+```
+
 f. Generate data from an AR(2) model with $\phi_1 = -0.8$, $\phi_2 = 0.3$ and $\sigma^2 = 1$. (Note that these parameters will give a non-stationary series.)
+
+```{r}
+AR2 <- function(phi_1, phi_2, y, e){
+  for(i in 3:100)
+    y[i] <- phi_1*y[i-1] + phi_2*y[i-2] + e[i]
+  return(y)
+}
+phi1_neg0.8_phi2_0.3 <- AR2(-0.8, 0.3, y, e)
+```
 
 g. Graph the latter two series and compare them.
 
 ```{r}
-
+ggtsdisplay(phi_0.6_theta_0.6)
+ggtsdisplay(phi1_neg0.8_phi2_0.3)
 ```
 
 
