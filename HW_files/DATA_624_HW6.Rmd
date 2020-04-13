@@ -13,7 +13,7 @@ output:
       fig_height: 4
       highlight: tango
       toc: yes
-      toc_depth: 2
+      toc_depth: 3
       toc_float:
         collapsed: no
         smooth_scroll: no
@@ -46,7 +46,7 @@ All of the plots look like white noise since almost none of the plots extend bey
 
 From Hyndman:
 
-> For a white noise series, we expect 95% of the spikes in the ACF to lie within $\pm 2/\sqrt{T}$ where $T$ is the length of the time series.^[Hyndman, R.J., & Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. OTexts.com/fpp2. Accessed on February 23, 2020.]
+> For a white noise series, we expect 95% of the spikes in the ACF to lie within $\pm 2/\sqrt{T}$ where $T$ is the length of the time series.^[Hyndman, R.J., & Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. OTexts.com/fpp2. Accessed on February 23, 2020. section 2.9 White noise]
 
 Since the critical values are dependent on $T$ the longer the time series, the smaller the absolute value of the critical values will be.
 
@@ -154,7 +154,7 @@ mcopper %>% ndiffs()
 mcopper %>% diff() %>% ggtsdisplay()
 ```
 
-Once again I tried log transformation and Box-Cox too just in case but again first-order differencing alone resulted in the best outcome.
+Once again I tried log transformation and Box-Cox too just in case but again first-order differencing alone resulted in the best outcome.  So it seems that the `ndiffs` function does result in the best solution.
 
 ### `enplanements`
 
@@ -193,7 +193,7 @@ cbind("enplanements" = enplanements,
     ggtitle("Domestic Revenue Enplanements (millions)")
 ```
 
-#### `visitors`
+### `visitors`
 
 Description: Monthly Australian short-term overseas visitors. May 1985-April 2005
 
@@ -259,7 +259,7 @@ Same as the last two time series in Exercise 8.3, the `nsdiffs` function recomme
 retail %>% BoxCox(lambda = "auto") %>% diff(lag=12) %>% diff() %>% ggtsdisplay()
 ```
 
-There's still a lot of autocorrelation in the ACF plot, but after trying a second-order seasonal dfference and second-order dfference after the seasonal differencing the plot above is still best.
+There's still a lot of autocorrelation in the ACF plot, but after trying a second-order seasonal difference and second-order difference after the seasonal differencing the plot above is still best.
 
 ```{r}
 cbind("Retail Sales" = retail,
@@ -277,7 +277,7 @@ cbind("Retail Sales" = retail,
 
 Use R to simulate and plot some data from simple ARIMA models.
 
-a. Use the following R code to generate data from an AR(1) model with $\phi_1 = 0.6$ and $\sigma^2 = 1$.  The process starts with $y_1 = 0$.
+#### a. Use the following R code to generate data from an AR(1) model with $\phi_1 = 0.6$ and $\sigma^2 = 1$.  The process starts with $y_1 = 0$.
 
 ```{r}
 set.seed(123)
@@ -285,9 +285,8 @@ y <- ts(numeric(100))
 e <- rnorm(100)
 # for(i in 2:100)
 #   y[i] <- 0.6*y[i-1] + e[i]
+head(cbind(y, e), 10)
 ```
-
-b. Produce a time plot for the series. How does the plot change as you change $\phi_1$?
 
 ```{r}
 AR1 <- function(phi, y, e){
@@ -295,25 +294,42 @@ AR1 <- function(phi, y, e){
     y[i] <- phi*y[i-1] + e[i]
   return(y)
 }
-
 phi_0.6 <- AR1(0.6, y, e)
+
+head(phi_0.6)
+```
+
+#### b. Produce a time plot for the series. How does the plot change as you change $\phi_1$?
+
+```{r}
 autoplot(phi_0.6)
 ```
 
-```{r}
+```{r fig.height=8}
 # par(mfrow=c(3,2))
-phi_0.01 <- AR1(0.01, y, e) %>% autoplot() + ggtitle('phi_0.01')
-phi_0.05 <- AR1(0.05, y, e) %>% autoplot() + ggtitle('phi_0.05')
-phi_0.1 <- AR1(0.1, y, e) %>% autoplot() + ggtitle('phi_0.1')
-phi_0.5 <- AR1(0.5, y, e) %>% autoplot() + ggtitle('phi_0.5')
+phi_neg1 <- AR1(-1, y, e) %>% autoplot() + ggtitle('phi_neg1')
+phi_neg0.9 <- AR1(-0.9, y, e) %>% autoplot() + ggtitle('phi_neg0.9')
+phi_neg0.6 <- AR1(-0.6, y, e) %>% autoplot() + ggtitle('phi_neg0.6')
+phi_neg0.3 <- AR1(-0.3, y, e) %>% autoplot() + ggtitle('phi_neg0.3')
+phi_0 <- AR1(0, y, e) %>% autoplot() + ggtitle('phi_0')
+phi_0.3 <- AR1(0.3, y, e) %>% autoplot() + ggtitle('phi_0.3')
+phi_0.6 <- AR1(0.6, y, e) %>% autoplot() + ggtitle('phi_0.6')
+phi_0.8 <- AR1(0.8, y, e) %>% autoplot() + ggtitle('phi_0.8')
 phi_0.9 <- AR1(0.9, y, e) %>% autoplot() + ggtitle('phi_0.9')
 phi_1.0 <- AR1(1.0, y, e) %>% autoplot() + ggtitle('phi_1.0')
 
-grid.arrange(phi_0.01, phi_0.05, phi_0.1, phi_0.5, phi_0.9, phi_1.0,
-             nrow = 3)
+grid.arrange(phi_neg1, phi_neg0.9, phi_neg0.6, phi_neg0.3,
+             phi_0, phi_0.3, phi_0.6, phi_0.8, phi_0.9, phi_1.0, 
+             nrow = 5)
 ```
 
-c. Write your own code to generate data from an MA(1) model with $\theta_1 = 0.6$ and $\sigma^2 = 1$.
+Negative $\phi_1$ values result in a plot that fluctuates wildly up and down since each y value is a function of the **_opposite_** of the previous y value plus error.  
+
+$\phi_1 = 0$ results in a stationary plot that is pure white noise since it is equivalent to plotting the errors.  The values fluctuate up and down between -2 and 2 since the errors are taken from a normal distribution with mean 0 and standard deviation of 1 and so the vast majority of values will be within 2 standard deviations of the mean.  
+
+At $\phi_1 = 0.6$ and above we start to see the plot smooth out more as each value is affected more and more by the previous y value until at $\phi_1 = 1$ each y value is equal to the previous y value plus the error and so is equivalent to a random walk.
+
+#### c. Write your own code to generate data from an MA(1) model with $\theta_1 = 0.6$ and $\sigma^2 = 1$.
 
 ```{r}
 MA1 <- function(theta, y, e){
@@ -323,28 +339,39 @@ MA1 <- function(theta, y, e){
 }
 ```
 
-d. Produce a time plot for the series. How does the plot change as you change $\theta_1$?
+#### d. Produce a time plot for the series. How does the plot change as you change $\theta_1$?
 
 ```{r}
 theta_0.6 <- MA1(0.6, y, e)
 autoplot(theta_0.6)
 ```
 
-```{r}
+```{r fig.height=8}
 # par(mfrow=c(3,2))
-theta_0.01 <- AR1(0.01, y, e) %>% autoplot() + ggtitle('theta_0.01')
-theta_0.05 <- AR1(0.05, y, e) %>% autoplot() + ggtitle('theta_0.05')
-theta_0.1 <- AR1(0.1, y, e) %>% autoplot() + ggtitle('theta_0.1')
-theta_0.5 <- AR1(0.5, y, e) %>% autoplot() + ggtitle('theta_0.5')
-theta_0.9 <- AR1(0.9, y, e) %>% autoplot() + ggtitle('theta_0.9')
-theta_1.0 <- AR1(1.0, y, e) %>% autoplot() + ggtitle('theta_1.0')
+theta_neg0.9 <- MA1(-0.9, y, e) %>% autoplot() + ggtitle('theta_neg0.9')
+theta_neg0.6 <- MA1(-0.6, y, e) %>% autoplot() + ggtitle('theta_neg0.6')
+theta_neg0.3 <- MA1(-0.3, y, e) %>% autoplot() + ggtitle('theta_neg0.3')
+theta_neg0.1 <- MA1(-0.1, y, e) %>% autoplot() + ggtitle('theta_neg0.1')
+theta_0 <- MA1(0, y, e) %>% autoplot() + ggtitle('theta_0')
+theta_0.1 <- MA1(0.1, y, e) %>% autoplot() + ggtitle('theta_0.1')
+theta_0.3 <- MA1(0.3, y, e) %>% autoplot() + ggtitle('theta_0.3')
+theta_0.6 <- MA1(0.6, y, e) %>% autoplot() + ggtitle('theta_0.6')
+theta_0.9 <- MA1(0.9, y, e) %>% autoplot() + ggtitle('theta_0.9')
+theta_1 <- MA1(1, y, e) %>% autoplot() + ggtitle('theta_1')
 
-grid.arrange(theta_0.01, theta_0.05, theta_0.1, 
-             theta_0.5, theta_0.9, theta_1.0,
-             nrow = 3)
+grid.arrange(theta_neg0.9, theta_neg0.6, theta_neg0.3,
+             theta_neg0.1, theta_0, theta_0.1, 
+             theta_0.3, theta_0.6, theta_0.9, theta_1, 
+             nrow = 5)
 ```
 
-e. Generate data from an ARMA(1,1) model with $\phi_1 = 0.6$, $\theta_1 = 0.6$ and $\sigma^2 = 1$.
+Negative $\theta_1$ values result in a plot that fluctuates wildly up and down since each value is a function of the **_opposite_** of the previous value. 
+
+At $\theta_1 = 0$ the plot is equivalent to plotting the errors with the previous values having no influence on the current value.  
+
+For positive $\theta_1$ values the higher the $\theta_1$ value the more the previous error influences the current value until at $\theta_1 = 1$ the current error and previous error have equal weight, which has no practical value.
+
+#### e. Generate data from an ARMA(1,1) model with $\phi_1 = 0.6$, $\theta_1 = 0.6$ and $\sigma^2 = 1$.
 
 ```{r}
 ARIMA11 <- function(phi, theta, y, e){
@@ -355,7 +382,7 @@ ARIMA11 <- function(phi, theta, y, e){
 phi_0.6_theta_0.6 <- ARIMA11(0.6, 0.6, y, e)
 ```
 
-f. Generate data from an AR(2) model with $\phi_1 = -0.8$, $\phi_2 = 0.3$ and $\sigma^2 = 1$. (Note that these parameters will give a non-stationary series.)
+#### f. Generate data from an AR(2) model with $\phi_1 = -0.8$, $\phi_2 = 0.3$ and $\sigma^2 = 1$. (Note that these parameters will give a non-stationary series.)
 
 ```{r}
 AR2 <- function(phi_1, phi_2, y, e){
@@ -366,34 +393,105 @@ AR2 <- function(phi_1, phi_2, y, e){
 phi1_neg0.8_phi2_0.3 <- AR2(-0.8, 0.3, y, e)
 ```
 
-g. Graph the latter two series and compare them.
+#### g. Graph the latter two series and compare them.
+
+##### ARMA(1,1) model with $\phi_1 = 0.6$, $\theta_1 = 0.6$ and $\sigma^2 = 1$
 
 ```{r}
 ggtsdisplay(phi_0.6_theta_0.6)
-ggtsdisplay(phi1_neg0.8_phi2_0.3)
 ```
 
+##### AR(2) model with $\phi_1 = -0.8$, $\phi_2 = 0.3$ and $\sigma^2 = 1$
+
+```{r}
+ggtsdisplay(phi1_neg0.8_phi2_0.3) 
+```
+
+In the first plot with $\phi_1 = 0.6$ and $\theta_1 = 0.6$ both the previous y value and the previous error value moderately influence the current value so you wind up with a pretty random plot.  In the second plot with $\phi_1 = -0.8$ and $\phi_2 = 0.3$, since the current y value is strongly influenced by the **_opposite_** of the previous value you get a plot that alternately fluctuates between positive and negative values but since it also has a positive $\phi_2$ value the absolute value of y increases exponentially over time.
 
 ## Exercise 8.7
 
 Consider `wmurders`, the number of women murdered each year (per 100,000 standard population) in the United States.
 
-a. By studying appropriate graphs of the series in R, find an appropriate $\text{ARIMA}(p,d,q)$ model for these data.
-
-b. Should you include a constant in the model? Explain.
-
-c. Write this model in terms of the backshift operator.
-
-d. Fit the model using R and examine the residuals. Is the model satisfactory?
-
-e. Forecast three times ahead. Check your forecasts by hand to make sure that you know how they have been calculated.
-
-f. Create a plot of the series with forecasts and prediction intervals for the next three periods shown.
-
-g. Does `auto.arima()` give the same model you have chosen? If not, which model do you think is better?
+#### a. By studying appropriate graphs of the series in R, find an appropriate $\text{ARIMA}(p,d,q)$ model for these data.
 
 ```{r}
-
+wmurders <- fpp2::wmurders
+ggtsdisplay(wmurders)
+frequency(wmurders)
 ```
+
+There is no seasonality in the data which is confirmed by the frequency of one.  So a non-seasonal ARIMA model can be used in this case.
+
+```{r}
+wmurders %>% ndiffs()
+# after Differencing once
+wmurders %>% diff() %>% diff() %>% ggtsdisplay()
+```
+
+The `ndiffs` function recommends 2nd order differencing which is confirmed in the plots above.  The ACF plot has two significant spikes at the beginning then none after that but is also sinusoidal with alternating positive and negative spikes and the PACF has only one significant spike after the first one, but it's not in the first few so we can disregard it.  So in this case, the ACF and PACF lead us to think an $\text{ARIMA}(0,2,1)$ model might be appropriate.  But we should keep in mind that if both $p$ and $q$ are positive then the plots would not be helpful in finding these values.  
+
+#### b. Should you include a constant in the model? Explain.
+
+Since $d = 2$ if $c = 0$ the long-term forecasts will follow a straight line.  If $c \neq 0$ the long-term forecasts will follow a quadratic trend.  So in this case I would not include a constant since a quadratic trend does not seem appropriate to this model.^[Hyndman, R.J., & Athanasopoulos, G. (2018) Forecasting: principles and practice, 2nd edition, OTexts: Melbourne, Australia. OTexts.com/fpp2. Accessed on February 23, 2020. section 8.5 Non-seasonal ARIMA models]
+
+#### c. Write this model in terms of the backshift operator.
+
+$$(1-B)^2y_t=\theta_1B\varepsilon_t$$
+
+#### d. Fit the model using R and examine the residuals. Is the model satisfactory?
+
+```{r}
+fit <- Arima(wmurders, order=c(0,2,1))
+fit
+checkresiduals(fit)
+```
+
+There are no apparent patterns in the residuals and their distribution is nearly normal, so the model seems to be satisfactory.   
+
+#### e. Forecast three times ahead. Check your forecasts by hand to make sure that you know how they have been calculated.
+
+```{r}
+fit %>% forecast(h=3)
+```
+
+$$
+\begin{align}
+(1-B)^2y_t &= \theta_1B\varepsilon_t \\
+y_t-2y_{t-1}+y_{t-2} &= \theta_1 y_{t-1} \varepsilon_t \\
+y_t &= 2y_{t-1} - y_{t-2} + \theta_1 y_{t-1} \varepsilon_t
+\end{align}\\
+$$
+
+
+```{r}
+fc <- ts(numeric(3))
+theta <- -0.8995
+y <- wmurders[54:55]
+e <- residuals(fit)[55]
+  
+fc[1] <- 2*y[2] - y[1] + theta*e
+fc[2] <- 2*fc[1] - y[2] 
+fc[3] <- 2*fc[2]  - fc[1]
+
+fc
+```
+
+The manually calculated forecasts match the fitted forecasts.
+
+#### f. Create a plot of the series with forecasts and prediction intervals for the next three periods shown.
+
+```{r}
+fit %>% forecast(h=3) %>% autoplot()
+```
+
+#### g. Does `auto.arima()` give the same model you have chosen? If not, which model do you think is better?
+
+```{r}
+fit <- auto.arima(wmurders, seasonal=FALSE)
+fit
+```
+
+No, the `auto.arima` function chose an $\text{ARIMA}(1,2,1)$ model which is not the same model we chose but this is not surprising since if that is the ideal model then according to Hyndman since both $p$ and $q$ are positive the plots would not help us in choosing appropriate values for $p$ and $q$ anyway.  Additionally, the  `auto.arima` model gives us slightly better AIC and AICc values, so I would think it is the better model.  
 
 ## Footnotes

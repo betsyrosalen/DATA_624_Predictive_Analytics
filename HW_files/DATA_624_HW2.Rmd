@@ -1,5 +1,5 @@
 ---
-title: "DATA624 HW1"
+title: "DATA624 HW2"
 subtitle: "The Forecaster's Toolbox"
 author: "Betsy Rosalen"
 date: "2/16/2020"
