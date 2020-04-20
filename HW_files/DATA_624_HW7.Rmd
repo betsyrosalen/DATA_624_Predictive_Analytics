@@ -1,0 +1,300 @@
+---
+title: "DATA624 HW7"
+subtitle: "Linear Regression"
+author: "Betsy Rosalen"
+date: "4/18/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 7
+      fig_height: 4
+      highlight: tango
+      toc: yes
+      toc_depth: 3
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(caret)
+library(ggplot2)
+library(kableExtra)
+library(dplyr)
+
+set.seed(123)
+```
+
+## Exercise 6.2 
+
+Developing a model to predict permeability (see Sect. 1.4) could save significant resources for a pharmaceutical company, while at the same time more rapidly identifying molecules that have a sufficient permeability to become a drug:
+
+### Part (a) 
+
+Start R and use these commands to load the data:
+
+```{r}
+library(AppliedPredictiveModeling)
+data(permeability)
+```
+
+The matrix `fingerprints` contains the 1,107 binary molecular predictors for the 165 compounds, while `permeability` contains permeability response.
+
+### Part (b) 
+
+The fingerprint predictors indicate the presence or absence of substructures of a molecule and are often sparse meaning that relatively few of the molecules contain each substructure. Filter out the predictors that have low frequencies using the `nearZeroVar` function from the caret package.
+
+```{r}
+fingerprints <- as.data.frame(fingerprints)
+# permeability <- as.data.frame(permeability)
+near0 <- nearZeroVar(fingerprints)
+fp <- fingerprints[,-near0]
+```
+
+How many predictors are left for modeling?
+
+There are `r dim(fp)[2]` predictors out of `r dim(fingerprints)[2]` left for modeling.
+
+### Part (c) 
+
+Split the data into a training and a test set, pre-process the data, and tune a PLS model. How many latent variables are optimal and what is the corresponding resampled estimate of $R^2$?
+
+```{r}
+trainingRows <- createDataPartition(permeability, p = .80, list= FALSE)
+
+train_x <- fp[trainingRows, ]
+train_y <- permeability[trainingRows]
+
+test_x <- fp[-trainingRows, ]
+test_y <- permeability[-trainingRows] 
+```
+
+#### PLS using the `caret` package
+
+```{r}
+pls_model <- train(train_x, train_y, method="pls",
+                   tuneLength=20, 
+                   # trControl=trainControl(method="repeatedcv",repeats=5),
+                   preProcess=c("center","scale"))
+pls_model
+```
+
+```{r}
+summary(pls_model)
+```
+
+```{r}
+plot(pls_model)
+```
+
+#### PLS using the `pls` package
+
+```{r}
+library(pls)
+train <- train_x
+train['y'] <- train_y
+test <- test_x
+test['y'] <- test_y
+
+plsFit <- plsr(y ~ ., data = train, scale = TRUE, center = TRUE, 
+               ncomp=20, validation = "CV")
+```
+
+```{r}
+ncomp.onesigma <- selectNcomp(plsFit, method = "onesigma", 
+                              plot = TRUE, ylim = c(12, 20))
+ncomp.permut <- selectNcomp(plsFit, method = "randomization", 
+                            plot = TRUE, ylim = c(12, 20))
+```
+
+```{r fig.height=7}
+plot(plsFit, plottype = "scores", comps = 1:2)
+```
+
+```{r}
+plot(plsFit, "loadings", comps = 1:2, legendpos = "topright")
+abline(h = 0)
+```
+
+```{r fig.width=9}
+par(mfrow=c(1,2))
+validationplot(plsFit, val.type="RMSEP")
+validationplot(plsFit, val.type="R2")
+```
+
+```{r}
+plsFit_R2 <- 1-sum(plsFit$residuals[,,2]^2)/sum((train$y-mean(train$y))^2)
+```
+
+Both the `caret` and the `pls` package find that 2 components are optimal (although when using cross-validation I can't always get reproducible results and sometimes it recommends more).  For the `caret` model the corresponding $R^2$ value is `r pls_model$results[2,3]`.  For the `pls` model the corresponding $R^2$ value is `r plsFit_R2` (if I calculated that correctly). 
+
+### Part (d) 
+
+Predict the response for the test set. What is the test set estimate of $R^2$?
+
+#### `caret` package predictions
+
+```{r}
+caret_pred <- predict(pls_model, test_x)
+postResample(pred = caret_pred, obs = test_y)
+```
+
+#### `pls` package predictions
+
+```{r}
+pls_pred <- predict(plsFit, test_x, ncomp=2)
+pls.eval <- data.frame(obs=test_y, pred=pls_pred[,1,1])
+defaultSummary(pls.eval)
+```
+
+I'm a little shocked that my model evaluation statistics all came out exactly the same for both models.  But I guess that's possible.
+
+### Part (e) 
+
+Try building other models discussed in this chapter. Do any have better predictive performance?
+
+#### `elasticnet`
+
+```{r}
+library(elasticnet)
+ridge_model <- enet(x = as.matrix(train_x), y = train_y, lambda = 0.1, 
+                   normalize = TRUE)
+```
+
+```{r}
+ridge_pred <- predict(ridge_model, as.matrix(test_x), s = 1, 
+                     mode = "fraction",
+                     type = "fit")
+```
+
+```{r}
+postResample(pred = ridge_pred$fit, obs = test_y)
+```
+
+After trial and error an elastic net model created with the `elasticnet` package and using $\lambda = 0.1$ resulted in a slightly better $R^2$ but since we are comparing two different models this may not be the best measure of performance.  The RMSE and MAE are not much different though, so I would think the elastic net has better predictive performance.
+
+```{r fig.width=9, fig.height=3}
+par(mfrow=c(1,3))
+plot(test_y, caret_pred, ylab="predicted", xlab="observed") + title("caret")
+plot(test_y, pls_pred, ylab="predicted", xlab="observed") + title("pls")
+plot(test_y, ridge_pred$fit, ylab="predicted", xlab="observed") + title("elasticnet")
+```
+
+The plots of the actual vs. predicted values above confirm that the elastic net model seems to be a better fit.
+
+```{r fig.width=9, fig.height=3}
+par(mfrow=c(1,3))
+qqnorm(caret_pred, main = "caret")
+qqline(caret_pred)
+qqnorm(pls_pred, main = "pls")
+qqline(pls_pred)
+qqnorm(ridge_pred$fit, main = "elastic net")
+qqline(ridge_pred$fit)
+```
+
+The qq plots also show a better overall fit for the elastic net model even though the two PLS models made with the `caret` and the `pls` packages fit the majority of the data better, but have 5 significant outliers.
+
+### Part (f) 
+
+Would you recommend any of your models to replace the permeability laboratory experiment?
+
+No, based on the plots above I don't think any of the models would be accurate enough to justify replacing the permeability laboratory experiment.
+
+## Exercise 6.3. 
+
+A chemical manufacturing process for a pharmaceutical product was discussed in Sect. 1.4. In this problem, the objective is to understand the relationship between biological measurements of the raw materials (predictors), measurements of the manufacturing process (predictors), and the response of product yield. Biological predictors cannot be changed but can be used to assess the quality of the raw material before processing. On the other hand, manufacturing process predictors can be changed in the manufacturing process. Improving product yield by 1 % will boost revenue by approximately one hundred thousand dollars per batch:
+
+### Part (a) 
+
+Start R and use these commands to load the data:
+
+```{r}
+library(AppliedPredictiveModeling)
+data(ChemicalManufacturingProcess)
+```
+
+The data.frame `ChemicalManufacturingProcess` contains the 57 predictors (12 describing the input biological material and 45 describing the process predictors) for the 176 manufacturing runs and one target variable `yield`, which contains the percent yield for each run.
+
+### Part (b) 
+
+A small percentage of cells in the predictor set contain missing values. Use an imputation function to fill in these missing values (e.g., see Sect. 3.8).
+
+```{r}
+# missing <- data.frame(t(apply(is.na(ChemicalManufacturingProcess), 2, sum)))
+# t(missing[,colSums(missing) > 0])
+library(naniar) # for missing data viz
+missingness <- ChemicalManufacturingProcess %>%
+  miss_var_summary() 
+kable(missingness %>% 
+  filter(pct_miss > 0)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+imputer <- preProcess(ChemicalManufacturingProcess, method = "knnImpute")
+CMP_imputed <- predict(imputer, ChemicalManufacturingProcess)
+missing <- CMP_imputed %>%
+  miss_var_summary() 
+kable(missing %>% 
+  filter(pct_miss > 0)) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+
+### Part (c) 
+
+Split the data into a training and a test set, pre-process the data, and tune a model of your choice from this chapter. What is the optimal value of the performance metric?
+
+```{r}
+near0 <- nearZeroVar(CMP_imputed)
+cmp <- CMP_imputed[,-near0]
+```
+
+There are `r dim(cmp)[2]` predictors out of `r dim(CMP_imputed)[2]` left for modeling after removing variables with near zero variance.
+
+```{r}
+trainingRows <- createDataPartition(cmp$Yield, p = .80, list= FALSE)
+
+train <- cmp[trainingRows, ]
+test <- cmp[-trainingRows, ]
+```
+
+#### PLS using the `caret` package
+
+```{r}
+pls_model2 <- train(train[,-1], train[,"Yield"], method="pls",
+                   tuneLength=20, 
+                   # trControl=trainControl(method="repeatedcv",repeats=5),
+                   preProcess=c("center","scale"))
+pls_model2
+```
+
+### Part (d) 
+
+Predict the response for the test set. What is the value of the performance metric and how does this compare with the resampled performance metric on the training set?
+
+```{r}
+
+```
+
+### Part (e) 
+
+Which predictors are most important in the model you have trained? Do either the biological or process predictors dominate the list?
+
+```{r}
+
+```
+
+### Part (f) 
+
+Explore the relationships between each of the top predictors and the response. How could this information be helpful in improving yield in future runs of the manufacturing process?
+
+```{r}
+
+```
+
+## Footnotes 
