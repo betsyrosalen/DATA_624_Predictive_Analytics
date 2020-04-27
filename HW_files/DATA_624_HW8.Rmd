@@ -145,8 +145,8 @@ svmRModel
 
 ```{r}
 svmRPred <- predict(svmRModel, newdata=testData$x)
-svmPR <- postResample(pred=svmRPred, obs=testData$y)
-svmPR
+svmRPR <- postResample(pred=svmRPred, obs=testData$y)
+svmRPR
 ```
 
 ### Model Comparison
@@ -222,17 +222,19 @@ testy <- test$Yield
 
 ```{r}
 # library(caret)
-knnModel <- train(x = trainx, y = trainy, method = "knn", 
+knnMod <- train(x = trainx, y = trainy, method = "knn", 
                   preProcess = c("center", "scale"), tuneLength = 10)
-knnModel
+knnMod
 ```
 
 ```{r}
-knnPred <- predict(knnModel, newdata = testx)
-## The function 'postResample' can be used to get the test set
-## perforamnce values
-knnPR <- postResample(pred = knnPred, obs = testy)
-knnPR
+knnTrainPred <- predict(knnMod)
+knnTrainPR <- postResample(pred = knnTrainPred, obs = trainy)
+
+knnTestPred <- predict(knnMod, newdata = testx)
+knnTestPR <- postResample(pred = knnTestPred, obs = testy)
+
+data.frame(rbind(knnTrainPR, knnTestPR))
 ```
 
 ### Neural Network
@@ -247,7 +249,7 @@ nnetGrid <- expand.grid(.decay = c(0, 0.01, .1),
 
 ctrl <- trainControl(method = "cv")
 
-avNNetModel <- train(trainx, trainy, 
+avNNetMod <- train(trainx, trainy, 
                  method = "avNNet",
                  tuneGrid = nnetGrid,
                  trControl = ctrl,
@@ -261,13 +263,17 @@ avNNetModel <- train(trainx, trainy,
                  maxit = 500,
                  ## and the number of parameters used by the model
                  MaxNWts = 10 * (ncol(trainx) + 1) + 10 + 1)
-avNNetModel
+avNNetMod
 ```
 
 ```{r}
-avNNetPred <- predict(avNNetModel, newdata = testx)
-avNNetPR <- postResample(pred = avNNetPred, obs = testy)
-avNNetPR
+avNNetTrainPred <- predict(avNNetMod)
+avNNetTrainPR <- postResample(pred = avNNetTrainPred, obs = trainy)
+
+avNNetTestPred <- predict(avNNetMod, newdata = testx)
+avNNetTestPR <- postResample(pred = avNNetTestPred, obs = testy)
+
+data.frame(rbind(avNNetTrainPR, avNNetTestPR))
 ```
 
 ### Multivariate Adaptive Regression Splines
@@ -275,53 +281,72 @@ avNNetPR
 ```{r}
 marsGrid <- expand.grid(.degree=1:2, .nprune=2:38)
 
-marsModel <- train(x=trainx, y=trainy, 
+marsMod <- train(x=trainx, y=trainy, 
                   method="earth",
                   # preProcess=c("center", "scale"), 
                   tuneGrid=marsGrid,
                   trControl = ctrl)
-marsModel
+marsMod
 ```
 
 ```{r}
-marsPred <- predict(marsModel, newdata=testx)
-marsPR <- postResample(pred=marsPred, obs=testy)
-marsPR
+marsTrainPred <- predict(marsMod)
+marsTrainPR <- postResample(pred = marsTrainPred, obs = trainy)
+
+marsTestPred <- predict(marsMod, newdata = testx)
+marsTestPR <- postResample(pred = marsTestPred, obs = testy)
+
+data.frame(rbind(marsTrainPR, marsTestPR))
 ```
 
 ### Support Vector Machine
 
 ```{r}
-svmRModel <- train(x=trainx, y=trainy, 
+svmRMod <- train(x=trainx, y=trainy, 
                   method="svmRadial", 
                   preProcess=c("center", "scale"), 
                   tuneLength=20)
-svmRModel
+svmRMod
 ```
 
 ```{r}
-svmRPred <- predict(svmRModel, newdata=testx)
-svmPR <- postResample(pred=svmRPred, obs=testy)
-svmPR
+svmRTrainPred <- predict(svmRMod)
+svmRTrainPR <- postResample(pred = svmRTrainPred, obs = trainy)
+
+svmRTestPred <- predict(svmRMod, newdata = testx)
+svmRTestPR <- postResample(pred = svmRTestPred, obs = testy)
+
+data.frame(rbind(svmRTrainPR, svmRTestPR))
 ```
 
 ### Part (a) 
 
 #### Model Comparison
 
-Which models appear to give the best performance? 
+Which nonlinear regression model gives the optimal resampling and test
+set performance?
 
 ```{r}
-mods <- data.frame(rbind(knnPR, avNNetPR, marsPR, svmPR))
-mods[order(mods$RMSE),]
+trainPR <- data.frame(rbind(knnTrainPR, avNNetTrainPR, marsTrainPR, svmRTrainPR))
+trainPR[order(trainPR$RMSE),]
 ```
 
+```{r}
+testPR <- data.frame(rbind(knnTestPR, avNNetTestPR, marsTestPR, svmRTestPR))
+testPR[order(testPR$RMSE),]
+```
+
+Although the neural net had significantly better performance on the training set, the support vector machine gave slightly better performance on the training data. The $R^2$ is still higher on the neural net but since they are different models types you really cannot compare the $R^2$ between models only on differently tuned versions of the same type of model.
 
 ### Part (b) 
 
 Which predictors are most important in the optimal nonlinear regression model? Do either the biological or process variables dominate the
 list? How do the top ten important predictors compare to the top ten
 predictors from the optimal linear model?
+
+```{r}
+varImp(marsMod)
+```
 
 
 ### Part (c) 
