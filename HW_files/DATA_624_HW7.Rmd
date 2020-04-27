@@ -77,9 +77,9 @@ test_y <- permeability[-trainingRows]
 
 ```{r}
 pls_model <- train(train_x, train_y, method="pls",
-                   tuneLength=20, 
+                   tuneLength = 20, 
                    # trControl=trainControl(method="repeatedcv",repeats=5),
-                   preProcess=c("center","scale"))
+                   preProcess = c("center","scale"))
 pls_model
 ```
 
@@ -87,7 +87,7 @@ pls_model
 summary(pls_model)
 ```
 
-```{r}
+```{r echo=FALSE}
 plot(pls_model)
 ```
 
@@ -104,23 +104,23 @@ plsFit <- plsr(y ~ ., data = train, scale = TRUE, center = TRUE,
                ncomp=20, validation = "CV")
 ```
 
-```{r}
+```{r echo=FALSE}
 ncomp.onesigma <- selectNcomp(plsFit, method = "onesigma", 
                               plot = TRUE, ylim = c(12, 20))
 ncomp.permut <- selectNcomp(plsFit, method = "randomization", 
                             plot = TRUE, ylim = c(12, 20))
 ```
 
-```{r fig.height=7}
+```{r fig.height=7, echo=FALSE}
 plot(plsFit, plottype = "scores", comps = 1:2)
 ```
 
-```{r}
+```{r echo=FALSE}
 plot(plsFit, "loadings", comps = 1:2, legendpos = "topright")
 abline(h = 0)
 ```
 
-```{r fig.width=9}
+```{r fig.width=9, echo=FALSE}
 par(mfrow=c(1,2))
 validationplot(plsFit, val.type="RMSEP")
 validationplot(plsFit, val.type="R2")
@@ -157,43 +157,76 @@ I'm a little shocked that my model evaluation statistics all came out exactly th
 
 Try building other models discussed in this chapter. Do any have better predictive performance?
 
-#### `elasticnet`
+#### elastic net
+
+##### Tune with `caret`
+
+```{r}
+ridge_grid <- data.frame(.lambda = seq(0, .1, length=11))
+ctrl <- trainControl(method = "cv", number = 10)
+ridge_model <- train(train_x, train_y,
+                      method = "ridge",
+                      tuneGrid = ridge_grid,
+                      trControl = ctrl,
+                      preProcess = c("center","scale"))
+ridge_model
+```
+
+##### Train with `elasticnet`
 
 ```{r}
 library(elasticnet)
-ridge_model <- enet(x = as.matrix(train_x), y = train_y, lambda = 0.1, 
+ridge_model2 <- enet(x = as.matrix(train_x), y = train_y, lambda = 0.1, 
                    normalize = TRUE)
 ```
 
+#### Predictions
+
+##### `caret` model
+
 ```{r}
-ridge_pred <- predict(ridge_model, as.matrix(test_x), s = 1, 
+ridge_pred <- predict(ridge_model, test_x, s = 1, 
+                     mode = "raw",
+                     type = "raw")
+```
+
+```{r}
+postResample(pred = ridge_pred, obs = test_y)
+```
+
+##### `elasticnet` model
+
+```{r}
+ridge_pred2 <- predict(ridge_model2, as.matrix(test_x), s = 1, 
                      mode = "fraction",
                      type = "fit")
 ```
 
 ```{r}
-postResample(pred = ridge_pred$fit, obs = test_y)
+postResample(pred = ridge_pred2$fit, obs = test_y)
 ```
 
-After trial and error an elastic net model created with the `elasticnet` package and using $\lambda = 0.1$ resulted in a slightly better $R^2$ but since we are comparing two different models this may not be the best measure of performance.  The RMSE and MAE are not much different though, so I would think the elastic net has better predictive performance.
+After tuning with the `caret` package `train` function an elastic net model created with the `elasticnet` package and using $\lambda = 0.1$ resulted in a slightly better $R^2$ but since we are comparing two different models this may not be the best measure of performance.  The RMSE and MAE are not much different though, so I would think the elastic net has better predictive performance.  
 
-```{r fig.width=9, fig.height=3}
+The model created by the `train` function in the `caret` package returned the same results, so I'm not really sure why the textbook has you recreate the model with the `elasticnet` package?
+
+```{r fig.width=9, fig.height=3, echo=FALSE}
 par(mfrow=c(1,3))
-plot(test_y, caret_pred, ylab="predicted", xlab="observed") + title("caret")
-plot(test_y, pls_pred, ylab="predicted", xlab="observed") + title("pls")
-plot(test_y, ridge_pred$fit, ylab="predicted", xlab="observed") + title("elasticnet")
+invisible(plot(test_y, caret_pred, ylab="predicted", xlab="observed") + title("caret"))
+invisible(plot(test_y, pls_pred, ylab="predicted", xlab="observed") + title("pls"))
+invisible(plot(test_y, ridge_pred, ylab="predicted", xlab="observed") + title("elasticnet"))
 ```
 
 The plots of the actual vs. predicted values above confirm that the elastic net model seems to be a better fit.
 
-```{r fig.width=9, fig.height=3}
+```{r fig.width=9, fig.height=3, echo=FALSE}
 par(mfrow=c(1,3))
 qqnorm(caret_pred, main = "caret")
 qqline(caret_pred)
 qqnorm(pls_pred, main = "pls")
 qqline(pls_pred)
-qqnorm(ridge_pred$fit, main = "elastic net")
-qqline(ridge_pred$fit)
+qqnorm(ridge_pred, main = "elastic net")
+qqline(ridge_pred)
 ```
 
 The qq plots also show a better overall fit for the elastic net model even though the two PLS models made with the `caret` and the `pls` packages fit the majority of the data better, but have 5 significant outliers.
@@ -204,7 +237,7 @@ Would you recommend any of your models to replace the permeability laboratory ex
 
 No, based on the plots above I don't think any of the models would be accurate enough to justify replacing the permeability laboratory experiment.
 
-## Exercise 6.3. 
+## Exercise 6.3
 
 A chemical manufacturing process for a pharmaceutical product was discussed in Sect. 1.4. In this problem, the objective is to understand the relationship between biological measurements of the raw materials (predictors), measurements of the manufacturing process (predictors), and the response of product yield. Biological predictors cannot be changed but can be used to assess the quality of the raw material before processing. On the other hand, manufacturing process predictors can be changed in the manufacturing process. Improving product yield by 1 % will boost revenue by approximately one hundred thousand dollars per batch:
 
@@ -266,35 +299,119 @@ test <- cmp[-trainingRows, ]
 #### PLS using the `caret` package
 
 ```{r}
-pls_model2 <- train(train[,-1], train[,"Yield"], method="pls",
+CMP_pls_model <- train(train[,-1], train[,"Yield"], method="pls",
                    tuneLength=20, 
                    # trControl=trainControl(method="repeatedcv",repeats=5),
                    preProcess=c("center","scale"))
-pls_model2
+CMP_pls_model
+```
+
+I'm not impressed with the results, so let's try an elastic net...
+
+#### elastic net
+
+##### Tune with `caret`
+
+```{r}
+CMP_ridge_model <- train(train[,-1], train$Yield,
+                      method = "ridge",
+                      tuneGrid = ridge_grid,
+                      trControl = ctrl,
+                      preProcess = c("center","scale"))
+CMP_ridge_model
+```
+
+The elastic net model seems to give us significantly better performance than the PLS model.  So let's follow the textbook examples and train with the `elasticnet` package too using the optimal lambda parameter as determined by the `caret` model training.
+
+##### Train with `elasticnet`
+
+```{r}
+library(elasticnet)
+CMP_ridge_model2 <- enet(x = as.matrix(train[,-1]), y = train$Yield, lambda = 0.1, 
+                   normalize = TRUE)
 ```
 
 ### Part (d) 
 
 Predict the response for the test set. What is the value of the performance metric and how does this compare with the resampled performance metric on the training set?
 
-```{r}
+#### `caret` model
 
+```{r}
+CMP_ridge_pred <- predict(CMP_ridge_model, test[,-1], s = 1, 
+                     mode = "raw",
+                     type = "raw")
 ```
+
+```{r}
+postResample(pred = CMP_ridge_pred, obs = test$Yield)
+```
+
+#### `elasticnet` model
+
+```{r}
+CMP_ridge_pred2 <- predict(CMP_ridge_model2, as.matrix(test[,-1]), s = 1, 
+                     mode = "fraction",
+                     type = "fit")
+```
+
+```{r}
+postResample(pred = CMP_ridge_pred2$fit, obs = test$Yield)
+```
+
+Once again we get almost exactly the same performance from the models trained with the `caret` package and the `elasticnet` package.  Each has an $R^2$ of about 0.69 which is significantly higher than the resampled $R^2$ on the training set which was about 0.47.
 
 ### Part (e) 
 
 Which predictors are most important in the model you have trained? Do either the biological or process predictors dominate the list?
 
 ```{r}
+CMP_enet_coef <- predict(CMP_ridge_model2, as.matrix(test[,-1]), s = 1, 
+                     mode = "fraction",
+                     type = "coefficients")
 
+top3 <- head(sort(CMP_enet_coef$coefficients, decreasing = TRUE), 3)
+bottom3 <- tail(sort(CMP_enet_coef$coefficients, decreasing = TRUE), 3)
+top3
+bottom3
 ```
+
+The 6 most influential predictors (3 of which are positively influential and 3 of which are negatively influential) are all manufacturing process predictors.
 
 ### Part (f) 
 
 Explore the relationships between each of the top predictors and the response. How could this information be helpful in improving yield in future runs of the manufacturing process?
 
-```{r}
-
+```{r fig.width=9, fig.height=6, echo=FALSE}
+par(mfrow=c(2,3))
+invisible(plot(CMP_imputed$ManufacturingProcess32, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess32", ylab="Yield") 
+          + abline(lm(Yield ~ ManufacturingProcess32, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess09, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess09", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess09, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess04, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess04", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess04, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess36, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess36", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess36, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess13, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess13", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess13, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess37, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess37", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess37, data = CMP_imputed), col="red"))
 ```
 
-## Footnotes 
+```{r}
+top_vars <- c('ManufacturingProcess32', 'ManufacturingProcess09', 'ManufacturingProcess04',
+         'ManufacturingProcess36', 'ManufacturingProcess13', 'ManufacturingProcess37')
+
+mod <- lm(Yield~ManufacturingProcess32+ManufacturingProcess09+ManufacturingProcess04+
+        ManufacturingProcess36+ManufacturingProcess13+ManufacturingProcess37,
+        data = CMP_imputed)
+summary(mod)
+```
+
+A simple linear model using only the top 6 predictors to model the response results in an adjusted $R^2$ value of 0.62 which is only slightly lower than the much more complicated elastic net model. And the top 2 predictors, `ManufacturingProcess32` and `ManufacturingProcess09`, have by far the greatest significance in this model, so these are the first two processes that I would look at if I were trying to optimize this manufacturing process.  Although since both of those processes have a positive effect on the yield, it may also be advisable to look at the three processes that have a negative impact on yield to see if improvements to those processes can increase yield.
