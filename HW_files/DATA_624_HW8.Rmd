@@ -74,7 +74,7 @@ knnPred <- predict(knnModel, newdata = testData$x)
 ## The function 'postResample' can be used to get the test set
 ## perforamnce values
 knnPR <- postResample(pred = knnPred, obs = testData$y)
-knnPR
+knnPR 
 ```
 
 Since KNN was already done for us let's try Neural Network, MARS, and SVM Models:
@@ -154,8 +154,10 @@ svmRPR
 Which models appear to give the best performance? 
 
 ```{r}
-mods <- data.frame(rbind(knnPR, avNNetPR, marsPR, svmPR))
-mods[order(mods$RMSE),]
+mods <- data.frame(rbind(knnPR, avNNetPR, marsPR, svmRPR))
+mods[order(mods$RMSE),] %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 The MARS model has the best performance as measured by all three metrics.
@@ -196,8 +198,9 @@ CMP_imputed <- predict(imputer, ChemicalManufacturingProcess)
 missing <- CMP_imputed %>%
   miss_var_summary() 
 kable(missing %>% 
-  filter(pct_miss > 0)) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+  filter(pct_miss > 0)) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 ```{r}
@@ -234,7 +237,9 @@ knnTrainPR <- postResample(pred = knnTrainPred, obs = trainy)
 knnTestPred <- predict(knnMod, newdata = testx)
 knnTestPR <- postResample(pred = knnTestPred, obs = testy)
 
-data.frame(rbind(knnTrainPR, knnTestPR))
+data.frame(rbind(knnTrainPR, knnTestPR)) %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 ### Neural Network
@@ -273,7 +278,9 @@ avNNetTrainPR <- postResample(pred = avNNetTrainPred, obs = trainy)
 avNNetTestPred <- predict(avNNetMod, newdata = testx)
 avNNetTestPR <- postResample(pred = avNNetTestPred, obs = testy)
 
-data.frame(rbind(avNNetTrainPR, avNNetTestPR))
+data.frame(rbind(avNNetTrainPR, avNNetTestPR)) %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 ### Multivariate Adaptive Regression Splines
@@ -296,7 +303,9 @@ marsTrainPR <- postResample(pred = marsTrainPred, obs = trainy)
 marsTestPred <- predict(marsMod, newdata = testx)
 marsTestPR <- postResample(pred = marsTestPred, obs = testy)
 
-data.frame(rbind(marsTrainPR, marsTestPR))
+data.frame(rbind(marsTrainPR, marsTestPR)) %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 ### Support Vector Machine
@@ -316,7 +325,9 @@ svmRTrainPR <- postResample(pred = svmRTrainPred, obs = trainy)
 svmRTestPred <- predict(svmRMod, newdata = testx)
 svmRTestPR <- postResample(pred = svmRTestPred, obs = testy)
 
-data.frame(rbind(svmRTrainPR, svmRTestPR))
+data.frame(rbind(svmRTrainPR, svmRTestPR)) %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 ### Part (a) 
@@ -328,33 +339,91 @@ set performance?
 
 ```{r}
 trainPR <- data.frame(rbind(knnTrainPR, avNNetTrainPR, marsTrainPR, svmRTrainPR))
-trainPR[order(trainPR$RMSE),]
+trainPR[order(trainPR$RMSE),] %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 ```{r}
 testPR <- data.frame(rbind(knnTestPR, avNNetTestPR, marsTestPR, svmRTestPR))
-testPR[order(testPR$RMSE),]
+testPR[order(testPR$RMSE),] %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
 ```
 
 Although the neural net had significantly better performance on the training set, the support vector machine gave slightly better performance on the training data. The $R^2$ is still higher on the neural net but since they are different models types you really cannot compare the $R^2$ between models only on differently tuned versions of the same type of model.
 
 ### Part (b) 
 
-Which predictors are most important in the optimal nonlinear regression model? Do either the biological or process variables dominate the
-list? How do the top ten important predictors compare to the top ten
-predictors from the optimal linear model?
+Which predictors are most important in the optimal nonlinear regression model? Do either the biological or process variables dominate the list? 
+
+How do the top ten important predictors compare to the top ten predictors from the optimal linear model?
 
 ```{r}
-varImp(marsMod)
+varImp(svmRMod)
 ```
 
+The manufacturing processes still dominate the list of most important predictors in the support vector machine model, although 4 of the top ten (and 2 of the top 6) are biological materials so they are not completely absent like they were in the optimal linear model.  
 
 ### Part (c) 
 
-Explore the relationships between the top predictors and the response for
-the predictors that are unique to the optimal nonlinear regression model.
-Do these plots reveal intuition about the biological or process predictors
-and their relationship with yield?
+Explore the relationships between the top predictors and the response for the predictors that are unique to the optimal nonlinear regression model.
 
+Do these plots reveal intuition about the biological or process predictors and their relationship with yield?
+
+```{r fig.width=9, fig.height=6, echo=FALSE}
+par(mfrow=c(2,3))
+invisible(plot(CMP_imputed$ManufacturingProcess13, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess13", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess13, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess32, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess32", ylab="Yield") 
+          + abline(lm(Yield ~ ManufacturingProcess32, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess17, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess17", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess17, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$BiologicalMaterial06, CMP_imputed$Yield, 
+               xlab="BiologicalMaterial06", ylab="Yield")
+          + abline(lm(Yield ~ BiologicalMaterial06, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$ManufacturingProcess09, CMP_imputed$Yield, 
+               xlab="ManufacturingProcess09", ylab="Yield")
+          + abline(lm(Yield ~ ManufacturingProcess09, data = CMP_imputed), col="red"))
+invisible(plot(CMP_imputed$BiologicalMaterial03, CMP_imputed$Yield, 
+               xlab="BiologicalMaterial03", ylab="Yield")
+          + abline(lm(Yield ~ BiologicalMaterial03, data = CMP_imputed), col="red"))
+```
+
+The plots show a linear relationship especially evident in the plots for ManufacturingProcess32 and ManufacturingProcess09.  These were also the top two predictors in the linear model from HW7.  
+
+```{r}
+lmMod <- lm(Yield~ManufacturingProcess13+ManufacturingProcess32+ManufacturingProcess17+
+            ManufacturingProcess09+BiologicalMaterial06+BiologicalMaterial03,
+          data = train)
+summary(lmMod)
+```
+
+Once again a simple linear model using the top 6 predictors in the support vector machine model gives us performance that is almost as good as the more complicated SVM model.  Using the predictors marked as having statistical significance from this model and from the model in HW7 gives us the model below:
+
+```{r}
+lmMod <- lm(Yield~ManufacturingProcess32 + ManufacturingProcess17 + 
+            ManufacturingProcess09 + ManufacturingProcess04 + 
+            ManufacturingProcess13 + ManufacturingProcess37,
+          data = train)
+summary(lmMod)
+```
+
+```{r}
+lmTrainPred <- predict(lmMod)
+lmTrainPR <- postResample(pred = lmTrainPred, obs = trainy)
+
+lmTestPred <- predict(lmMod, newdata = testx)
+lmTestPR <- postResample(pred = lmTestPred, obs = testy)
+
+data.frame(rbind(svmRTestPR, lmTestPR, lmTrainPR)) %>% kable %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
+                full_width = F)
+```
+
+This last linear model using the top predictors found in HW 7 and in also in this assignment give us a linear model that has performance almost equal to our best nonlinear model.  In fact if we use MAE as our measure of performance then the linear model actually outperforms the SVM model on the test data.
 
 ### Footnotes
