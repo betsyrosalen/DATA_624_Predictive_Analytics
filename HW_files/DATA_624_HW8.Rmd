@@ -31,16 +31,13 @@ set.seed(123)
 
 ## Exercise 7.2
 
-Friedman (1991)^[Friedman J (1991). “Multivariate Adaptive Regression Splines.” *The Annals of Statistics*, **19**(1), 1–141.] introduced several benchmark data sets created by simulation. One of these simulations used the following nonlinear equation to
-create data:
+Friedman (1991)^[Friedman J (1991). “Multivariate Adaptive Regression Splines.” *The Annals of Statistics*, **19**(1), 1–141.] introduced several benchmark data sets created by simulation. One of these simulations used the following nonlinear equation to create data:
 
 $$
 y = 10 sin(\pi x_1x_2) + 20(x_3 − 0.5)^2 + 10x_4 + 5x_5 + N(0, \sigma^2)
 $$
 
-where the $x$ values are random variables uniformly distributed between [0, 1]
-(there are also 5 other non-informative variables also created in the simulation). The package mlbench contains a function called `mlbench.friedman1` that
-simulates these data:
+where the $x$ values are random variables uniformly distributed between [0, 1] (there are also 5 other non-informative variables also created in the simulation). The package mlbench contains a function called `mlbench.friedman1` that simulates these data:
 
 ```{r}
 library(mlbench)
@@ -172,9 +169,7 @@ Yes, the MARS model did select the appropriate 5 predictors.
 
 ## Exercise 7.5
 
-Exercise 6.3 describes data for a chemical manufacturing process. Use
-the same data imputation, data splitting, and pre-processing steps as before
-and train several nonlinear regression models.
+Exercise 6.3 describes data for a chemical manufacturing process. Use the same data imputation, data splitting, and pre-processing steps as before and train several nonlinear regression models.
 
 ```{r}
 library(AppliedPredictiveModeling)
@@ -334,8 +329,7 @@ data.frame(rbind(svmRTrainPR, svmRTestPR)) %>% kable %>%
 
 #### Model Comparison
 
-Which nonlinear regression model gives the optimal resampling and test
-set performance?
+Which nonlinear regression model gives the optimal resampling and test set performance?
 
 ```{r}
 trainPR <- data.frame(rbind(knnTrainPR, avNNetTrainPR, marsTrainPR, svmRTrainPR))
