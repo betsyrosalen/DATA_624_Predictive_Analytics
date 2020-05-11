@@ -1,3 +1,13 @@
+Project_2/Data624_Project2_cache
+Project_2/Data624_Project2_files
+Project_2/Data624_Technical_Report_files
+Project_2/Data624_Non-Technical_Report_files
+Project_2/Data624_Project2.RData
+
+Project_2/*.log
+
+
+
 # History files
 .Rhistory
 .Rapp.history
