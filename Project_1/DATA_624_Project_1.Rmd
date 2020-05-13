@@ -29,6 +29,18 @@ library(gridExtra)
 library(urca)
 library(tidyverse)
 library(readxl)
+
+# Table formatting functions for HTML
+kab_tab <- function(df, cap=""){
+  df %>% kable(caption=cap) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = T)
+}
+kab_tab2 <- function(df, cap=""){
+  df %>% kable(caption=cap) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = F)
+}
 ```
 
 # Part A – ATM Forecast
@@ -138,7 +150,7 @@ The plot above shows that most of the seasonality has been eliminated and we are
 atm1.fit1 <- atm1.ts %>% hw(h=31, seasonal="additive", 
                            damped=TRUE, lambda = atm1.lambda)
 autoplot(atm1.fit1) + theme(panel.background = element_blank())
-data.frame(accuracy(atm1.fit1))
+kab_tab2(data.frame(accuracy(atm1.fit1)))
 checkresiduals(atm1.fit1)
 ```
 
@@ -151,7 +163,7 @@ atm1.fit2 <- atm1.ts %>% ets(model="ZZZ", lambda = atm1.lambda)
 # as.character(atm1.fit2)
 autoplot(atm1.fit2) + theme(panel.background = element_blank())
 autoplot(forecast(atm1.fit2, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm1.fit2))
+kab_tab2(data.frame(accuracy(atm1.fit2)))
 checkresiduals(atm1.fit2)
 ```
 
@@ -163,7 +175,7 @@ The ETS model gave us almost exactly the same results with only slightly better 
 atm1.fit3 <- auto.arima(atm1.ts)
 # as.character(atm1.fit3)
 autoplot(forecast(atm1.fit3, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm1.fit3))
+kab_tab2(data.frame(accuracy(atm1.fit3)))
 checkresiduals(atm1.fit3)
 ```
 
@@ -172,7 +184,7 @@ The ARIMA model resulted in the best fit with the best RMSE and a Ljung-Box p-va
 ```{r}
 results <- data.frame(rbind(accuracy(atm1.fit1), accuracy(atm1.fit2), accuracy(atm1.fit3)))
 rownames(results) <- c("Holt-Winter's", "ETS", "ARIMA(0,0,1)(0,1,2)[7]")
-results
+kab_tab2(results)
 ```
 
 
@@ -207,7 +219,7 @@ atm2.ts %>% BoxCox(atm2.lambda) %>% diff(lag=7) %>% ggtsdisplay()
 atm2.fit1 <- atm2.ts %>% hw(h=31, seasonal="additive", damped=TRUE, 
                             lambda = atm2.lambda)
 autoplot(atm2.fit1) + theme(panel.background = element_blank())
-data.frame(accuracy(atm2.fit1))
+kab_tab2(data.frame(accuracy(atm2.fit1)))
 checkresiduals(atm2.fit1)
 ```
 
@@ -218,7 +230,7 @@ atm2.fit2 <- atm2.ts %>% ets(model="ZZZ", lambda =atm2.lambda)
 # as.character(atm2.fit2)
 autoplot(atm2.fit2) + theme(panel.background = element_blank())
 autoplot(forecast(atm2.fit2, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm2.fit2))
+kab_tab2(data.frame(accuracy(atm2.fit2)))
 checkresiduals(atm2.fit2)
 ```
 
@@ -228,7 +240,7 @@ checkresiduals(atm2.fit2)
 atm2.fit3 <- auto.arima(atm2.ts, lambda = atm2.lambda)
 # as.character(atm2.fit3)
 autoplot(forecast(atm2.fit3, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm2.fit3))
+kab_tab2(data.frame(accuracy(atm2.fit3)))
 checkresiduals(atm2.fit3)
 ```
 
@@ -240,7 +252,7 @@ Since the `ndiffs` function recommended first order differencing but the `auto.a
 atm2.fit4 <- Arima(diff(atm2.ts), order=c(3,1,3),seasonal=c(0,1,1), lambda = atm2.lambda)
 # as.character(atm2.fit4)
 autoplot(forecast(atm2.fit4, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm2.fit4))
+kab_tab2(data.frame(accuracy(atm2.fit4)))
 checkresiduals(atm2.fit4)
 ```
 
@@ -249,7 +261,7 @@ results <- data.frame(rbind(accuracy(atm2.fit1), accuracy(atm2.fit2),
                             accuracy(atm2.fit3),accuracy(atm2.fit4)))
 rownames(results) <- c("Holt-Winter's", "ETS", "ARIMA(3,0,3)(0,1,1)[7]",
                        "ARIMA(3,1,3)(0,1,1)[7]")
-results
+kab_tab2(results)
 ```
 
 The `auto.arima` function gave us the best results so that model will be used for predictions. 
@@ -296,7 +308,7 @@ Here no differencing or seasonal differencing was recommended but a box-cox tran
 atm4.fit1 <- atm4.ts %>% hw(h=31, seasonal="additive", damped=TRUE, 
                            lambda = atm4.lambda)
 autoplot(atm4.fit1) + theme(panel.background = element_blank())
-data.frame(accuracy(atm4.fit1))
+kab_tab2(data.frame(accuracy(atm4.fit1)))
 checkresiduals(atm4.fit1)
 ```
 
@@ -307,7 +319,7 @@ atm4.fit2 <- atm4.ts %>% ets(model="ZZZ", lambda = atm4.lambda)
 # as.character(atm4.fit2)
 autoplot(atm4.fit2) + theme(panel.background = element_blank())
 autoplot(forecast(atm4.fit2, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm4.fit2))
+kab_tab2(data.frame(accuracy(atm4.fit2)))
 checkresiduals(atm4.fit2)
 ```
 
@@ -317,7 +329,7 @@ checkresiduals(atm4.fit2)
 atm4.fit3 <- auto.arima(atm4.ts, seasonal = TRUE, lambda = atm4.lambda)
 # as.character(atm4.fit3)
 autoplot(forecast(atm4.fit3, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm4.fit3))
+kab_tab2(data.frame(accuracy(atm4.fit3)))
 checkresiduals(atm4.fit3)
 ```
 
@@ -328,7 +340,7 @@ atm4.fit4 <- Arima(atm4.ts, order=c(0,0,1),seasonal=c(14,1,0),
                    lambda = atm4.lambda)
 # as.character(atm4.fit4)
 autoplot(forecast(atm4.fit4, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(atm4.fit4))
+kab_tab2(data.frame(accuracy(atm4.fit4)))
 checkresiduals(atm4.fit4)
 ```
 
@@ -337,7 +349,7 @@ results <- data.frame(rbind(accuracy(atm4.fit1), accuracy(atm4.fit2),
                             accuracy(atm4.fit3),accuracy(atm4.fit4)))
 rownames(results) <- c("Holt-Winter's", "ETS", "ARIMA(0,0,1)(2,0,0)[7]",
                        "ARIMA(0,0,1)(14,1,0)[7]")
-results
+kab_tab2(results)
 ```
 
 Although similar performance was eventually reached with the ARIMA model the much less complex ETS model is preferred since the improvement in performance is very minimal.
@@ -408,14 +420,14 @@ pow.ts %>% BoxCox(pow.lambda) %>% diff() %>% diff(lag=7) %>% ggtsdisplay()
 pow.fit1 <- pow.ts %>% hw(h=31, seasonal="additive", damped=TRUE, 
                            lambda = pow.lambda)
 autoplot(pow.fit1) + theme(panel.background = element_blank())
-data.frame(accuracy(pow.fit1))
+kab_tab2(data.frame(accuracy(pow.fit1)))
 checkresiduals(pow.fit1)
 ```
 
 ```{r}
 pow.fit2 <- pow.ts %>% hw(h=31, seasonal="multiplicative", damped=TRUE)
 autoplot(pow.fit2) + theme(panel.background = element_blank())
-data.frame(accuracy(pow.fit2))
+kab_tab2(data.frame(accuracy(pow.fit2)))
 checkresiduals(pow.fit2)
 ```
 
@@ -428,7 +440,7 @@ pow.fit3 <- pow.ts %>% ets(model="ZZZ", lambda = pow.lambda)
 # pow.fit1
 autoplot(pow.fit3) + theme(panel.background = element_blank())
 autoplot(forecast(pow.fit3, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(pow.fit3))
+kab_tab2(data.frame(accuracy(pow.fit3)))
 checkresiduals(pow.fit3)
 ```
 
@@ -438,14 +450,14 @@ checkresiduals(pow.fit3)
 pow.fit4 <- auto.arima(pow.ts, seasonal = TRUE, lambda = pow.lambda)
 # pow.fit2
 autoplot(forecast(pow.fit4, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(pow.fit4))
+kab_tab2(data.frame(accuracy(pow.fit4)))
 checkresiduals(pow.fit4)
 ```
 
 ```{r}
 pow.fit5 <- Arima(pow.ts, order=c(2,1,1), seasonal=c(2,1,2))
 autoplot(forecast(pow.fit5, h=31)) + theme(panel.background = element_blank())
-data.frame(accuracy(pow.fit5))
+kab_tab2(data.frame(accuracy(pow.fit5)))
 checkresiduals(pow.fit5)
 ```
 
@@ -457,7 +469,7 @@ results <- data.frame(rbind(accuracy(pow.fit1), accuracy(pow.fit2),
 rownames(results) <- c("Holt-Winter's Additive", "Holt-Winter's Multiplicative", 
                        "ETS", "ARIMA(0,0,1)(2,1,0)[12]",
                        "ARIMA(2,1,1)(2,1,2)[12]")
-results
+kab_tab2(results)
 ```
 
 Some trial and error resulted in an ARIMA(2,1,1)(2,1,2)[12] model (without any box-cox transformation) that is not so complex and has significantly improved performance, so that it is the preferred model for forecasting.
