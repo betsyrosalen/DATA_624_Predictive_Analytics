@@ -1,0 +1,468 @@
+---
+title: "DATA624 Project 1"
+author: "Betsy Rosalen"
+date: "5/11/2020"
+output: 
+    html_document: 
+      code_folding: show
+      css: ./style.css
+      df_print: kable
+      fig_caption: yes
+      fig_width: 7
+      fig_height: 5
+      highlight: tango
+      toc: yes
+      toc_depth: 3
+      toc_float:
+        collapsed: no
+        smooth_scroll: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(fpp3)
+library(ggplot2)
+library(forecast)
+library(seasonal)
+library(kableExtra)
+library(gridExtra)
+library(urca)
+library(tidyverse)
+library(readxl)
+```
+
+# Part A – ATM Forecast
+
+Files: ATM624Data.xlsx
+
+In part A, I want you to forecast how much cash is taken out of 4 different ATM machines for May 2010.  The data is given in a single file.  The variable ‘Cash’ is provided in hundreds of dollars, other than that it is straight forward.   I am being somewhat ambiguous on purpose to make this have a little more business feeling.  Explain and demonstrate your process, techniques used and not used, and your actual forecast.  I am giving you data via an excel file, please provide your written report on your findings, visuals, discussion and your R code via an RPubs link along with the actual.rmd file  Also please submit the forecast which you will put in an Excel readable file.
+
+## Import and Clean Data
+
+First step is to import the data from excel.  When I imported it the first time it was not reading the dates correctly, by simply opening the file in excel and formatting it as a date, and saving the file, I was able to import the dates correctly the second time.  
+
+```{r}
+atm <- read_excel("ATM624Data.xlsx")
+```
+
+Next step is to examine the data before converting it to a time series to see if there is any missing data or other problems with the data, and since we have 4 ATMs we need to move each ATM to a separate column.  Upon doing this I discovered a few problems that needed to be dealt with:
+
+1. there are NA's in the `ATM` field that needed to be removed 
+2. ATM3 has almost no values and is mostly zeros
+3. there is an outlier in ATM4's data that is far above the normal
+4. there are 3 NA's in the `Cash` field for ATM1 and 2 for ATM2 
+
+```{r}
+# Format DATE column in R date format
+atm$DATE <- lubridate::ymd(atm$DATE)
+
+# Remove empty rows with no data
+atm <- atm[complete.cases(atm), ]
+
+# Plot data
+ggplot(atm, aes(DATE, Cash)) + geom_line() + facet_grid(ATM~., scales="free") +
+  labs(title="ATM Withdrawals", y="Hundreds of dollars", x="") +
+  theme(panel.background = element_blank())
+
+# Convert each ATM to a separate column
+atm <- atm %>% pivot_wider(names_from = ATM, values_from = Cash)
+atm %>% select(-DATE) %>% summary()
+
+# Replace NA's and Outlier
+atm$ATM1 <- atm$ATM1 %>% replace(is.na(.), median(atm$ATM1, na.rm = TRUE))
+atm$ATM2 <- atm$ATM2 %>% replace(is.na(.), median(atm$ATM2, na.rm = TRUE))
+atm$ATM4[atm$ATM4==max(atm$ATM4)] <- median(atm$ATM4, na.rm = TRUE)
+```
+
+The NA's in the `ATM` field turned out to be the dates that will be forecast with no data in the other columns, so they were removed using the `complete.cases` function.
+
+The NA's in ATM1 and ATM2's data were imputed using the median since the number of missing values was so small.
+
+ATM4's outlier was also replaced with the median since it was so far above the norm, and the only abnormal data point in the entire ATM4 series, so it seemed likely to be an error.
+
+## Cleaned up data
+
+```{r}
+# Plot and summarize again after cleaning up 
+atm2 <- atm %>% pivot_longer(cols = starts_with("ATM"), 
+                             names_to = "ATM", values_to = "Cash") 
+ggplot(atm2, aes(DATE, Cash)) + geom_line() + facet_grid(ATM~., scales="free") +
+  labs(title="ATM Withdrawals", y="Hundreds of dollars", x="") +
+  theme(panel.background = element_blank())
+
+atm %>% select(-DATE) %>% summary()
+```
+
+ATM's 1 and 2 appear to have some weekly seasonality.  ATM3 with only 3 data points does not have enough data to do a proper forecast so a simple mean will be used.  ATM4 Appears to be white noise, but there may still be some seasonality that we will investigate further o determine.  There is no apparent trend to any of the series.
+
+## Convert to Time Series
+
+Time series objects were created for each ATM since there seemed to be some weekly and possibly monthly seasonality in the plots of the data (although I was tempted to just sum the data on a monthly basis since the instructions were not clear about whether or not we were required to create daily forecasts or if a monthly forecast would be adequate). 
+
+```{r}
+atm1.ts <- atm2 %>% filter(ATM=="ATM1") %>% select(Cash) %>%
+  ts(start = 1, frequency = 7)
+atm2.ts <- atm2 %>% filter(ATM=="ATM2") %>% select(Cash) %>%
+  ts(start = 1, frequency = 7)
+atm3.ts <- atm2 %>% filter(ATM=="ATM3") %>% select(Cash) %>%
+  ts(start = 1, frequency = 2)
+atm4.ts <- atm2 %>% filter(ATM=="ATM4") %>% select(Cash) %>%
+  ts(start = 1, frequency = 7)
+```
+
+## ATM1
+
+For each of ATM1, ATM2 and ATM4, I want to try running at least a Holt-Winter's additive model with damped trend, since the seasonal variations are roughly constant through the series, and ETS and ARIMA models to see if they result in better performance than the Holt-Winter's model.
+
+Before running any models I will check the ACF and PACF plots, and the `ndiffs`, `nsdiffs`, and `BoxCox.lambda` functions to see what they recommend for differencing and what type of model they suggest might be most appropriate.  
+
+```{r}
+ggtsdisplay(atm1.ts) 
+ndiffs(atm1.ts)
+nsdiffs(atm1.ts)
+atm1.lambda <- BoxCox.lambda(atm1.ts)
+atm1.lambda
+```
+
+For ATM1 no first order differencing is recommended, only a first order seasonal difference and a box-cox transformation with $\lambda$ = `r atm1.lambda`.  Let's plot the data again after these transformations are performed to see what impact they have.  
+
+```{r}
+atm1.ts %>% BoxCox(atm1.lambda) %>% diff(lag=7) %>% ggtsdisplay()
+```
+
+The plot above shows that most of the seasonality has been eliminated and we are left with an almost stationary time series although there are still spikes in the ACF plot at lag 7 and in the PACF plot at lags 7, 14, and 21.  By adding a first order differencing we can make 
+
+### Holt-Winters
+
+```{r}
+atm1.fit1 <- atm1.ts %>% hw(h=31, seasonal="additive", 
+                           damped=TRUE, lambda = atm1.lambda)
+autoplot(atm1.fit1) + theme(panel.background = element_blank())
+data.frame(accuracy(atm1.fit1))
+checkresiduals(atm1.fit1)
+```
+
+The residuals plot looks not too bad, but our Ljung-Box test has an extremely small p-value indicating that there is still some autocorrelation in our data as we saw in the plot of the transformed data.  Our forecast plot looks not too bad either although those confidence intervals extend way past what we have seen historically in the data.
+
+### ETS
+
+```{r}
+atm1.fit2 <- atm1.ts %>% ets(model="ZZZ", lambda = atm1.lambda)
+# as.character(atm1.fit2)
+autoplot(atm1.fit2) + theme(panel.background = element_blank())
+autoplot(forecast(atm1.fit2, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm1.fit2))
+checkresiduals(atm1.fit2)
+```
+
+The ETS model gave us almost exactly the same results with only slightly better RMSE and Ljung-Box results.  
+
+### ARIMA
+
+```{r}
+atm1.fit3 <- auto.arima(atm1.ts)
+# as.character(atm1.fit3)
+autoplot(forecast(atm1.fit3, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm1.fit3))
+checkresiduals(atm1.fit3)
+```
+
+The ARIMA model resulted in the best fit with the best RMSE and a Ljung-Box p-value that means we cannot reject the null hypothesis that the series is consistent with white noise.  The plot of the forecast also looks like a more reasonable estimate of what we can expect based on the historical data.  
+
+```{r}
+results <- data.frame(rbind(accuracy(atm1.fit1), accuracy(atm1.fit2), accuracy(atm1.fit3)))
+rownames(results) <- c("Holt-Winter's", "ETS", "ARIMA(0,0,1)(0,1,2)[7]")
+results
+```
+
+
+```{r}
+atm1.fc <- data.frame(forecast(atm1.fit3, h=31)) %>% remove_rownames()
+write_csv(atm1.fc, "ATM1_Forecast.csv")
+```
+
+## ATM2
+
+Following the same procedure for ATM2. 
+
+```{r}
+ggtsdisplay(atm2.ts) 
+ndiffs(atm2.ts)
+nsdiffs(atm2.ts)
+atm2.lambda <- BoxCox.lambda(atm2.ts)
+atm2.lambda
+```
+
+For ATM2 both first order differencing and seasonal differencing are recommended, and a box-cox transformation with $\lambda$ = `r atm2.lambda`.  Let's plot the data again after these transformations are performed to see what impact they have.  
+
+Once again we can see clear seasonality in the ACF and PACF plots before transformation in the plot above, and after in the plot below.  Note the first order differencing was not applied because it resulted in a PACF with many spikes outside the critical values.
+
+```{r}
+atm2.ts %>% BoxCox(atm2.lambda) %>% diff(lag=7) %>% ggtsdisplay()
+```
+
+### Holt-Winters
+
+```{r}
+atm2.fit1 <- atm2.ts %>% hw(h=31, seasonal="additive", damped=TRUE, 
+                            lambda = atm2.lambda)
+autoplot(atm2.fit1) + theme(panel.background = element_blank())
+data.frame(accuracy(atm2.fit1))
+checkresiduals(atm2.fit1)
+```
+
+### ETS
+
+```{r}
+atm2.fit2 <- atm2.ts %>% ets(model="ZZZ", lambda =atm2.lambda)
+# as.character(atm2.fit2)
+autoplot(atm2.fit2) + theme(panel.background = element_blank())
+autoplot(forecast(atm2.fit2, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm2.fit2))
+checkresiduals(atm2.fit2)
+```
+
+### ARIMA
+
+```{r}
+atm2.fit3 <- auto.arima(atm2.ts, lambda = atm2.lambda)
+# as.character(atm2.fit3)
+autoplot(forecast(atm2.fit3, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm2.fit3))
+checkresiduals(atm2.fit3)
+```
+
+#### ARIMA with first order differencing
+
+Since the `ndiffs` function recommended first order differencing but the `auto.arima` function did not use differencing in the model, let's try manually adding it to see if we can improve the model.
+
+```{r}
+atm2.fit4 <- Arima(diff(atm2.ts), order=c(3,1,3),seasonal=c(0,1,1), lambda = atm2.lambda)
+# as.character(atm2.fit4)
+autoplot(forecast(atm2.fit4, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm2.fit4))
+checkresiduals(atm2.fit4)
+```
+
+```{r}
+results <- data.frame(rbind(accuracy(atm2.fit1), accuracy(atm2.fit2),
+                            accuracy(atm2.fit3),accuracy(atm2.fit4)))
+rownames(results) <- c("Holt-Winter's", "ETS", "ARIMA(3,0,3)(0,1,1)[7]",
+                       "ARIMA(3,1,3)(0,1,1)[7]")
+results
+```
+
+The `auto.arima` function gave us the best results so that model will be used for predictions. 
+
+```{r}
+atm2.fc <- data.frame(forecast(atm2.fit3, h=31)) %>% remove_rownames()
+write_csv(atm2.fc, "ATM2_Forecast.csv")
+```
+
+## ATM3
+
+As mentioned earlier there just is not enough data to make a good forecast for ATM3, so a simple mean will be used to forecast until more data can be collected.
+
+```{r}
+atm3.ts <- window(atm3.ts, start=182)
+autoplot(atm3.ts) 
+atm3.fit = meanf(atm3.ts, h=31)
+autoplot(atm3.fit)
+```
+
+```{r}
+atm3.fc <- data.frame(forecast(atm3.fit, h=31)) %>% remove_rownames()
+write_csv(atm3.fc, "ATM3_Forecast.csv")
+```
+
+## ATM4
+
+Once again following the same procedure for ATM4 as done earlier for ATM's 1 and 2.
+
+```{r}
+ggtsdisplay(atm4.ts) 
+ndiffs(atm4.ts)
+nsdiffs(atm4.ts)
+atm4.lambda <- BoxCox.lambda(atm4.ts)
+atm4.lambda
+atm4.ts %>% BoxCox(atm4.lambda) %>% ggtsdisplay()
+```
+
+Here no differencing or seasonal differencing was recommended but a box-cox transformation with $\lambda$ = `r atm2.lambda` was.  Looking at the plots however, it's not clear that the box-cox transformation improved the stationarity of the data.  Seasonal spikes are still apparent.  
+
+### Holt-Winters
+
+```{r}
+atm4.fit1 <- atm4.ts %>% hw(h=31, seasonal="additive", damped=TRUE, 
+                           lambda = atm4.lambda)
+autoplot(atm4.fit1) + theme(panel.background = element_blank())
+data.frame(accuracy(atm4.fit1))
+checkresiduals(atm4.fit1)
+```
+
+### ETS
+
+```{r}
+atm4.fit2 <- atm4.ts %>% ets(model="ZZZ", lambda = atm4.lambda)
+# as.character(atm4.fit2)
+autoplot(atm4.fit2) + theme(panel.background = element_blank())
+autoplot(forecast(atm4.fit2, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm4.fit2))
+checkresiduals(atm4.fit2)
+```
+
+### ARIMA
+
+```{r}
+atm4.fit3 <- auto.arima(atm4.ts, seasonal = TRUE, lambda = atm4.lambda)
+# as.character(atm4.fit3)
+autoplot(forecast(atm4.fit3, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm4.fit3))
+checkresiduals(atm4.fit3)
+```
+
+On ATM4 the ARIMA model performs poorly as compared with either the Holt-Winter's or the ETS models.  But since the `auto.arima` function did not choose to use any seasonal differencing and some seasonality seems apparent in the plots, various arima models were tested using first order seasonal differencing until the best performance was attained using the model below.  
+
+```{r}
+atm4.fit4 <- Arima(atm4.ts, order=c(0,0,1),seasonal=c(14,1,0), 
+                   lambda = atm4.lambda)
+# as.character(atm4.fit4)
+autoplot(forecast(atm4.fit4, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(atm4.fit4))
+checkresiduals(atm4.fit4)
+```
+
+```{r}
+results <- data.frame(rbind(accuracy(atm4.fit1), accuracy(atm4.fit2),
+                            accuracy(atm4.fit3),accuracy(atm4.fit4)))
+rownames(results) <- c("Holt-Winter's", "ETS", "ARIMA(0,0,1)(2,0,0)[7]",
+                       "ARIMA(0,0,1)(14,1,0)[7]")
+results
+```
+
+Although similar performance was eventually reached with the ARIMA model the much less complex ETS model is preferred since the improvement in performance is very minimal.
+
+```{r}
+atm4.fc <- data.frame(forecast(atm4.fit2, h=31)) %>% remove_rownames()
+write_csv(atm4.fc, "ATM4_Forecast.csv")
+```
+
+
+# Part B – Forecasting Power 
+
+Files: ResidentialCustomerForecastLoad-624.xlsx
+
+Part B consists of a simple dataset of residential power usage for January 1998 until December 2013.  Your assignment is to model these data and a monthly forecast for 2014.  The data is given in a single file.  The variable ‘KWH’ is power consumption in Kilowatt hours, the rest is straight forward.  Add this to your existing files above. 
+
+```{r}
+pow <- read_excel("ResidentialCustomerForecastLoad-624.xlsx")
+summary(pow)
+
+# Format DATE column in R date format
+pow$`YYYY-MMM` <- paste0(pow$`YYYY-MMM`,"-01")
+pow$date <- lubridate::ymd(pow$`YYYY-MMM`)
+
+# Plot data
+ggplot(pow, aes(date, KWH)) + geom_line() + 
+  labs(title="residential power usage", y="KWH", x="") +
+  theme(panel.background = element_blank())
+```
+
+Here again like in the ATM data, we can clearly see an outlier that is most likely a data error so we imputed that point with the mean of the other data for the same month.  We did the same with another NA data point.  
+
+```{r}
+pow$month <- month(pow$date)
+
+# Remove NA in Sept 2008
+pow[is.na(pow$KWH),]
+pow$KWH[is.na(pow$KWH)] <- mean(pow$KWH[pow$month==9], na.rm = TRUE)
+
+# Outlier is in July 2010
+pow[pow$KWH==min(pow$KWH),]
+pow$KWH[pow$KWH==min(pow$KWH)] <- mean(pow$KWH[pow$month==7], na.rm = TRUE)
+```
+
+
+```{r}
+pow.ts <- ts(pow$KWH, start = c(1998,1), frequency = 12)
+
+# Plot data
+autoplot(pow.ts) + theme(panel.background = element_blank())
+ggseasonplot(pow.ts, polar = TRUE)
+ggsubseriesplot(pow.ts)
+```
+
+
+```{r}
+ggtsdisplay(pow.ts) 
+ndiffs(pow.ts)
+nsdiffs(pow.ts)
+pow.lambda <- BoxCox.lambda(pow.ts)
+pow.lambda
+pow.ts %>% BoxCox(pow.lambda) %>% diff() %>% diff(lag=7) %>% ggtsdisplay()
+```
+
+### Holt-Winters
+
+```{r}
+pow.fit1 <- pow.ts %>% hw(h=31, seasonal="additive", damped=TRUE, 
+                           lambda = pow.lambda)
+autoplot(pow.fit1) + theme(panel.background = element_blank())
+data.frame(accuracy(pow.fit1))
+checkresiduals(pow.fit1)
+```
+
+```{r}
+pow.fit2 <- pow.ts %>% hw(h=31, seasonal="multiplicative", damped=TRUE)
+autoplot(pow.fit2) + theme(panel.background = element_blank())
+data.frame(accuracy(pow.fit2))
+checkresiduals(pow.fit2)
+```
+
+Here a Holt-Winter's multiplicative model resulted in just slightly better performance than the additive model with box-cox transformation.
+
+### ETS
+
+```{r}
+pow.fit3 <- pow.ts %>% ets(model="ZZZ", lambda = pow.lambda)
+# pow.fit1
+autoplot(pow.fit3) + theme(panel.background = element_blank())
+autoplot(forecast(pow.fit3, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(pow.fit3))
+checkresiduals(pow.fit3)
+```
+
+### ARIMA
+
+```{r}
+pow.fit4 <- auto.arima(pow.ts, seasonal = TRUE, lambda = pow.lambda)
+# pow.fit2
+autoplot(forecast(pow.fit4, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(pow.fit4))
+checkresiduals(pow.fit4)
+```
+
+```{r}
+pow.fit5 <- Arima(pow.ts, order=c(2,1,1), seasonal=c(2,1,2))
+autoplot(forecast(pow.fit5, h=31)) + theme(panel.background = element_blank())
+data.frame(accuracy(pow.fit5))
+checkresiduals(pow.fit5)
+```
+
+
+```{r}
+results <- data.frame(rbind(accuracy(pow.fit1), accuracy(pow.fit2),
+                            accuracy(pow.fit3), accuracy(pow.fit4),
+                            accuracy(pow.fit5)))
+rownames(results) <- c("Holt-Winter's Additive", "Holt-Winter's Multiplicative", 
+                       "ETS", "ARIMA(0,0,1)(2,1,0)[12]",
+                       "ARIMA(2,1,1)(2,1,2)[12]")
+results
+```
+
+Some trial and error resulted in an ARIMA(2,1,1)(2,1,2)[12] model (without any box-cox transformation) that is not so complex and has significantly improved performance, so that it is the preferred model for forecasting.
+
+```{r}
+pow.fc <- data.frame(forecast(pow.fit5, h=31)) %>% remove_rownames()
+write_csv(pow.fc, "Power_Use_Forecast.csv")
+```
